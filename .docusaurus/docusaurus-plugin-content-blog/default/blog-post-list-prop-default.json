@@ -1,0 +1,17 @@
+{
+  "title": "Recent posts",
+  "items": [
+    {
+      "title": "Building a Modern Documentation Site with Docusaurus",
+      "permalink": "/blog/building-with-docusaurus",
+      "unlisted": false,
+      "date": "2024-01-15T00:00:00.000Z"
+    },
+    {
+      "title": "Welcome to My Blog",
+      "permalink": "/blog/welcome-to-my-blog",
+      "unlisted": false,
+      "date": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}

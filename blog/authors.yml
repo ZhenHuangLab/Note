@@ -1,0 +1,12 @@
+admin:
+  name: Blog Admin
+  title: Software Developer
+  url: https://github.com
+  image_url: https://github.com/github.png
+  email: admin@example.com
+
+guest:
+  name: Guest Author
+  title: Contributing Writer
+  url: https://example.com
+  image_url: https://github.com/github.png

@@ -1,0 +1,13 @@
+{
+  "type": "mdx",
+  "permalink": "/about",
+  "source": "@site/src/pages/about.md",
+  "title": "About",
+  "description": "About this blog and its author",
+  "frontMatter": {
+    "title": "About",
+    "description": "About this blog and its author",
+    "hide_table_of_contents": true
+  },
+  "unlisted": false
+}

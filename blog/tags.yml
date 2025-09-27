@@ -1,0 +1,29 @@
+welcome:
+  label: Welcome
+  permalink: /welcome
+  description: Welcome and introductory posts
+
+introduction:
+  label: Introduction
+  permalink: /introduction
+  description: Introduction and getting started posts
+
+docusaurus:
+  label: Docusaurus
+  permalink: /docusaurus
+  description: Posts about Docusaurus framework
+
+documentation:
+  label: Documentation
+  permalink: /documentation
+  description: Documentation-related posts
+
+react:
+  label: React
+  permalink: /react
+  description: React framework and ecosystem
+
+static-site:
+  label: Static Site
+  permalink: /static-site
+  description: Static site generators and JAMstack

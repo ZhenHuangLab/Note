@@ -1,0 +1,8 @@
+{
+  "label": "Tools",
+  "position": 2,
+  "link": {
+    "type": "doc",
+    "id": "notes/tools/index"
+  }
+}

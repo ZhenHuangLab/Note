@@ -1,0 +1,51 @@
+{
+  "permalink": "/blog/welcome-to-my-blog",
+  "editUrl": "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/blog/2024-01-01-welcome.md",
+  "source": "@site/blog/2024-01-01-welcome.md",
+  "title": "Welcome to My Blog",
+  "description": "I'm excited to launch this personal blog where I'll be sharing my journey in software development, technical insights, and lessons learned along the way.",
+  "date": "2024-01-01T00:00:00.000Z",
+  "tags": [
+    {
+      "inline": false,
+      "label": "Welcome",
+      "permalink": "/blog/tags/welcome",
+      "description": "Welcome and introductory posts"
+    },
+    {
+      "inline": false,
+      "label": "Introduction",
+      "permalink": "/blog/tags/introduction",
+      "description": "Introduction and getting started posts"
+    }
+  ],
+  "readingTime": 1.14,
+  "hasTruncateMarker": true,
+  "authors": [
+    {
+      "name": "Blog Admin",
+      "title": "Software Developer",
+      "url": "https://github.com",
+      "email": "admin@example.com",
+      "imageURL": "https://github.com/github.png",
+      "key": "admin",
+      "page": null
+    }
+  ],
+  "frontMatter": {
+    "slug": "welcome-to-my-blog",
+    "title": "Welcome to My Blog",
+    "authors": [
+      "admin"
+    ],
+    "tags": [
+      "welcome",
+      "introduction"
+    ]
+  },
+  "unlisted": false,
+  "prevItem": {
+    "title": "Building a Modern Documentation Site with Docusaurus",
+    "permalink": "/blog/building-with-docusaurus"
+  }
+}
