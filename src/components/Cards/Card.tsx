@@ -4,7 +4,7 @@ import CardHud from './CardHud';
 import { adjust, clamp, round } from './math';
 import { orientation, resetBaseOrientation, OrientationState } from './orientation';
 
-interface CardProps {
+export interface CardProps {
   img: string;
   imgLarge?: string;
   subtypes?: string;
@@ -13,6 +13,12 @@ interface CardProps {
   name?: string;
   rarity?: string;
   showcase?: boolean;
+  types?: string;
+  set?: string;
+  pageURL?: string;
+  back?: string;
+  foil?: string;
+  mask?: string;
 }
 
 const Card: React.FC<CardProps> = ({
@@ -23,7 +29,13 @@ const Card: React.FC<CardProps> = ({
   number = '',
   name = '',
   rarity = 'common',
-  showcase = false
+  showcase = false,
+  types = '',
+  set,
+  pageURL,
+  back = '/img/card-back.webp',
+  foil,
+  mask,
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isActive, setIsActive] = useState(false);
@@ -393,6 +405,7 @@ const Card: React.FC<CardProps> = ({
   // Build CSS classes
   const cardClasses = [
     'cards',
+    types,
     'interactive',
     isActive && 'active',
     showcase && 'showcase',
@@ -409,6 +422,11 @@ const Card: React.FC<CardProps> = ({
       data-number={number}
       data-rarity={rarity}
       data-showcase={showcase}
+      data-set={set || undefined}
+      data-types={types || undefined}
+      data-page-url={pageURL}
+      data-has-foil={foil ? 'true' : undefined}
+      data-has-mask={mask ? 'true' : undefined}
     >
       <div className="card__translater">
         <button
@@ -424,7 +442,7 @@ const Card: React.FC<CardProps> = ({
         >
           <img
             className="card__back"
-            src="/img/card-back.webp"
+            src={back}
             alt="Card back"
             loading="lazy"
           />
