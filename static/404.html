@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>页面未找到 | 我的笔记</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; padding: 2rem; }
+      .wrap { max-width: 720px; margin: 0 auto; }
+      h1 { margin-bottom: .25rem; }
+      .muted { color: #666; margin-bottom: 1rem; }
+      .links a { display: inline-block; margin-right: 1rem; }
+      code { background: #f4f4f4; padding: .125rem .25rem; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>404 - 页面未找到</h1>
+      <p class="muted">您访问的地址不存在。请检查链接是否正确。</p>
+
+      <div class="links">
+        <a href="/">返回中文首页</a>
+        <a href="/en/">Go to English Home</a>
+      </div>
+
+      <details>
+        <summary>技术细节</summary>
+        <p>
+          如果您是在点击语言切换后看到 404，请确认站点已同时部署
+          <code>/</code> 与 <code>/en/</code> 两套静态页面。GitHub Pages 会将未知路径
+          跳转到本页（<code>/404.html</code>），默认的 Docusaurus 404 修复脚本有时会导致
+          不断在链接中追加 <code>/en</code>。本自定义 404 页面不会进行此类重定向。
+        </p>
+      </details>
+    </div>
+  </body>
+  </html>
+

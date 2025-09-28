@@ -2,32 +2,29 @@
 sidebar_position: 1
 ---
 
-# Welcome to My Personal Blog
+# 欢迎来到我的笔记
 
-Welcome to my personal digital space! This is where I share my thoughts, document my learning journey, and organize my technical notes.
+这里是我的个人知识库，记录学习、思考和实践的过程。
 
-## What You'll Find Here
+## 关于这个网站
 
-### 📚 Technical Notes
-In-depth technical documentation and learning notes on various programming languages, frameworks, and tools. I believe in learning in public and sharing knowledge with the community.
+这个网站使用 **Docusaurus** 构建，旨在创建一个结构化的知识分享平台。
 
-### 💡 Thoughts & Ideas
-Reflections on technology trends, software development practices, and problem-solving approaches. Sometimes the best insights come from stepping back and thinking about the bigger picture.
+### 主要内容
 
-### 🛠️ Tools & Resources
-Curated collection of useful tools, libraries, and resources that I've discovered and found valuable in my development journey.
+- **📚 笔记分类**：
+  - 🛠️ **工具**：开发工具、效率软件等使用心得
+  - 💻 **编程**：技术学习、代码实践、项目经验
+  - 💭 **思考**：个人见解、学习心得、生活感悟
 
-### 📝 Blog Posts
-Regular blog posts covering tutorials, project updates, and technical deep-dives. Each post is a snapshot of my continuous learning process.
+- **📝 博客**：不定期分享技术文章和生活随想
 
-## Navigation
+### 快速导航
 
-- **[Notes](/docs/notes)** - Organized technical documentation and study notes
-- **[Blog](/blog)** - Latest blog posts and articles
-- **[About](/about)** - Learn more about me and this site
+通过左侧边栏可以快速找到你感兴趣的内容：
 
-## Connect
+1. **工具笔记** - 发现高效的工具和使用技巧
+2. **编程笔记** - 技术学习和实践总结
+3. **思考笔记** - 个人见解和心得体会
 
-Feel free to explore the content and reach out if you have any questions or suggestions. This site is built with [Docusaurus](https://docusaurus.io/) and continuously evolving as I learn and grow.
-
-Happy reading! 🚀
+欢迎探索这个知识空间！如果你有任何建议或想法，可以通过 GitHub 与我交流。

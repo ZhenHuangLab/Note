@@ -1,12 +1,5 @@
-admin:
-  name: Blog Admin
+zhenhuang:
+  name: Zhen Huang
   title: Software Developer
-  url: https://github.com
-  image_url: https://github.com/github.png
-  email: admin@example.com
-
-guest:
-  name: Guest Author
-  title: Contributing Writer
-  url: https://example.com
-  image_url: https://github.com/github.png
+  url: https://github.com/ZhenHuangLab
+  image_url: https://github.com/ZhenHuangLab.png
