@@ -6,3 +6,4 @@ CLAUDE.md
 node_modules/
 .docusaurus/
 build/
+.playwright-mcp/
