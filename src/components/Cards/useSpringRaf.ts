@@ -61,6 +61,7 @@ export function useSpringRaf(
 ): SpringControls {
   const rafIdRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
+  const initializedRef = useRef(false);
 
   // Merge config with Svelte defaults
   const stiffness = config.stiffness ?? 0.15;
@@ -131,6 +132,7 @@ export function useSpringRaf(
       const target = targetRef.current as Record<string, number>;
       const vars = cssVarNames as string[];
       const keys = keyOrderRef.current as string[];
+
 
       const nextValue: Record<string, number> = {};
 
@@ -205,7 +207,9 @@ export function useSpringRaf(
 
   // Initial CSS variable setup on mount
   useEffect(() => {
-    if (!elementRef.current) return;
+    if (!elementRef.current || initializedRef.current) return;
+
+    initializedRef.current = true;
 
     if (isObject) {
       const vars = cssVarNames as string[];
@@ -224,13 +228,16 @@ export function useSpringRaf(
       const unit = getCssUnit(cssVarNames as string);
       elementRef.current.style.setProperty(cssVarNames as string, `${initialValue}${unit}`);
     }
+  }); // Check on every render, but only initialize once
 
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current);
       }
     };
-  }, [elementRef, cssVarNames, initialValue, isObject]);
+  }, []); // Only cleanup on unmount
 
   const setTarget = (value: SpringValue): void => {
     // Don't start animation if element doesn't exist yet
@@ -246,7 +253,6 @@ export function useSpringRaf(
     }
 
     targetRef.current = cloneValue(value);
-    // Debug traces removed after verification
 
     // Start animation if not already running
     if (rafIdRef.current === null) {

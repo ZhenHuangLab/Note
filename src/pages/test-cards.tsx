@@ -26,6 +26,7 @@ export default function TestCardsPage() {
           number="001"
           rarity="rare"
           subtypes="water"
+          showcase={true}
         />
         <Card
           img="/assets/cards/riscv.light.png"
