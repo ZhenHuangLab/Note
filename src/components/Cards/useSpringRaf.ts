@@ -74,9 +74,28 @@ export function useSpringRaf(
 
   const isObject = typeof initialValue !== 'number';
 
+  // For object springs, capture a stable key order once
+  // so we can consistently map each key to its CSS variable index.
+  // Using a ref avoids re-computing and protects against Object.keys
+  // iteration order differences across different objects with the same shape.
+  const keyOrderRef = useRef<string[] | null>(
+    isObject ? Object.keys(initialValue as Record<string, number>) : null
+  );
+
+  /**
+   * Determine CSS unit based on variable name
+   */
+  const getCssUnit = (varName: string): string => {
+    if (varName.includes('rotate')) return 'deg';
+    if (varName.includes('translate')) return 'px';
+    if (varName.includes('scale') || varName.includes('opacity')) return '';
+    // Default to % for background and glare positions
+    return '%';
+  };
+
   // Validate cssVarNames alignment for objects
   if (isObject) {
-    const keys = Object.keys(initialValue as Record<string, number>);
+    const keys = keyOrderRef.current as string[];
     const vars = cssVarNames as string[];
     if (keys.length !== vars.length) {
       throw new Error(
@@ -111,10 +130,13 @@ export function useSpringRaf(
       const last = lastValueRef.current as Record<string, number>;
       const target = targetRef.current as Record<string, number>;
       const vars = cssVarNames as string[];
+      const keys = keyOrderRef.current as string[];
 
       const nextValue: Record<string, number> = {};
 
-      Object.keys(current).forEach((key, index) => {
+      // Iterate using the stable key order and map 1:1 to cssVarNames
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
         const delta = target[key] - current[key];
         const velocity = (current[key] - last[key]) / (dt || 1 / 60);
 
@@ -124,19 +146,19 @@ export function useSpringRaf(
 
         const d = (velocity + acceleration) * dt;
 
-        // Check settlement threshold
         if (Math.abs(d) < precision && Math.abs(delta) < precision) {
-          nextValue[key] = target[key]; // Snap to target
+          nextValue[key] = target[key];
         } else {
           nextValue[key] = current[key] + d;
           settled = false;
         }
 
-        // Update CSS variable
-        if (elementRef.current) {
-          elementRef.current.style.setProperty(vars[index], String(nextValue[key]));
+        if (elementRef.current && vars[i] !== undefined) {
+          const unit = getCssUnit(vars[i]);
+          const cssValue = `${nextValue[key]}${unit}`;
+          elementRef.current.style.setProperty(vars[i], cssValue);
         }
-      });
+      }
 
       lastValueRef.current = { ...current };
       currentRef.current = nextValue;
@@ -168,7 +190,8 @@ export function useSpringRaf(
 
       // Update CSS variable
       if (elementRef.current) {
-        elementRef.current.style.setProperty(cssVarNames as string, String(nextValue));
+        const unit = getCssUnit(cssVarNames as string);
+        elementRef.current.style.setProperty(cssVarNames as string, `${nextValue}${unit}`);
       }
     }
 
@@ -186,16 +209,20 @@ export function useSpringRaf(
 
     if (isObject) {
       const vars = cssVarNames as string[];
-      Object.keys(initialValue as Record<string, number>).forEach((key, index) => {
+      const keys = keyOrderRef.current as string[];
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
         if (elementRef.current) {
+          const unit = getCssUnit(vars[i]);
           elementRef.current.style.setProperty(
-            vars[index],
-            String((initialValue as Record<string, number>)[key])
+            vars[i],
+            `${(initialValue as Record<string, number>)[key]}${unit}`
           );
         }
-      });
+      }
     } else {
-      elementRef.current.style.setProperty(cssVarNames as string, String(initialValue));
+      const unit = getCssUnit(cssVarNames as string);
+      elementRef.current.style.setProperty(cssVarNames as string, `${initialValue}${unit}`);
     }
 
     return () => {
@@ -206,6 +233,12 @@ export function useSpringRaf(
   }, [elementRef, cssVarNames, initialValue, isObject]);
 
   const setTarget = (value: SpringValue): void => {
+    // Don't start animation if element doesn't exist yet
+    if (!elementRef.current) {
+      console.warn('useSpringRaf: element ref not set, skipping setTarget');
+      return;
+    }
+
     // Validate compatibility
     if (!valuesCompatible(currentRef.current, value)) {
       console.error('useSpringRaf: target value structure incompatible with current value');
@@ -213,6 +246,7 @@ export function useSpringRaf(
     }
 
     targetRef.current = cloneValue(value);
+    // Debug traces removed after verification
 
     // Start animation if not already running
     if (rafIdRef.current === null) {
@@ -237,16 +271,20 @@ export function useSpringRaf(
     if (elementRef.current) {
       if (isObject) {
         const vars = cssVarNames as string[];
-        Object.keys(value as Record<string, number>).forEach((key, index) => {
+        const keys = keyOrderRef.current as string[];
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
           if (elementRef.current) {
+            const unit = getCssUnit(vars[i]);
             elementRef.current.style.setProperty(
-              vars[index],
-              String((value as Record<string, number>)[key])
+              vars[i],
+              `${(value as Record<string, number>)[key]}${unit}`
             );
           }
-        });
+        }
       } else {
-        elementRef.current.style.setProperty(cssVarNames as string, String(value));
+        const unit = getCssUnit(cssVarNames as string);
+        elementRef.current.style.setProperty(cssVarNames as string, `${value}${unit}`);
       }
     }
 

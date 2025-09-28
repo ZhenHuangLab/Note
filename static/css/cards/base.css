@@ -301,6 +301,20 @@ Shine & Glare Effects
   
 }
 
+/* In interactive mode, drive glare and background parallax from spring values */
+.cards.interactive .card__glare {
+  background-image: radial-gradient(
+    farthest-corner circle at var(--glare-x) var(--glare-y),
+    hsla(0, 0%, 100%, 0.8) 10%,
+    hsla(0, 0%, 100%, 0.65) 20%,
+    hsla(0, 0%, 0%, 0.5) 90%
+  );
+}
+
+.cards.interactive .card__shine {
+  background-position: var(--background-x) var(--background-y);
+}
+
 
 
 
