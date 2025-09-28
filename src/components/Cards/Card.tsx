@@ -223,6 +223,38 @@ const Card: React.FC<CardProps> = ({
     resetCard();
   }, [resetCard]);
 
+  const handleClick = useCallback(() => {
+    if (!pageURL) {
+      return;
+    }
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (pageURL.startsWith('#')) {
+      const targetId = pageURL.slice(1);
+      if (targetId) {
+        const target = document.getElementById(targetId);
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+      window.location.hash = pageURL;
+      return;
+    }
+    window.location.assign(pageURL);
+  }, [pageURL]);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        handleClick();
+      }
+    },
+    [handleClick]
+  );
+
   const applyOrientation = useCallback((state: OrientationState) => {
     const limitX = 16;
     const limitY = 18;
@@ -430,6 +462,7 @@ const Card: React.FC<CardProps> = ({
     >
       <div className="card__translater">
         <button
+          type="button"
           className="card__rotator"
           aria-label={`${name} ${number} - ${rarity} ${subtypes}`}
           tabIndex={0}
@@ -439,6 +472,8 @@ const Card: React.FC<CardProps> = ({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
         >
           <img
             className="card__back"

@@ -57,3 +57,15 @@ body {
                                "Roboto Mono", "Source Code Pro", Menlo,
                                Consolas, "DejaVu Sans Mono", monospace;
 }
+
+.homepage-card__wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.homepage-card__wrapper .cards {
+  width: 100%;
+}
