@@ -4,6 +4,38 @@ import CardHud from './CardHud';
 import { adjust, clamp, round } from './math';
 import { orientation, resetBaseOrientation, OrientationState } from './orientation';
 
+const usePrefersReducedMotion = (): boolean => {
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return undefined;
+    }
+
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const handleChange = (event: MediaQueryListEvent | MediaQueryList) => {
+      setPrefersReducedMotion(event.matches);
+    };
+
+    handleChange(media);
+
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', handleChange as (event: MediaQueryListEvent) => void);
+      return () => media.removeEventListener('change', handleChange as (event: MediaQueryListEvent) => void);
+    }
+
+    media.addListener(handleChange as (this: MediaQueryList, ev: MediaQueryListEvent) => void);
+    return () => media.removeListener(handleChange as (this: MediaQueryList, ev: MediaQueryListEvent) => void);
+  }, []);
+
+  return prefersReducedMotion;
+};
+
 export interface CardProps {
   img: string;
   imgLarge?: string;
@@ -40,6 +72,7 @@ const Card: React.FC<CardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const [isActive, setIsActive] = useState(false);
   const [isShowcasing, setIsShowcasing] = useState(false);
+  const prefersReducedMotion = usePrefersReducedMotion();
   const showcaseTimeoutRef = useRef<NodeJS.Timeout>();
   const showcaseAnimationRef = useRef<number>();
   const controllerRef = useRef<'idle' | 'pointer' | 'orientation' | 'showcase'>('idle');
@@ -50,6 +83,10 @@ const Card: React.FC<CardProps> = ({
 
   // Always use interactive config for springs, control behavior via target values
   const springConfig = { stiffness: 0.15, damping: 0.8, precision: 0.01 };
+
+  const motionIntensity = prefersReducedMotion ? 0.6 : 1;
+  const activeScale = prefersReducedMotion ? 1.02 : 1.05;
+  const activeTranslateY = prefersReducedMotion ? -2 : -5;
 
   // Initialize springs for different CSS variable groups
   const rotateSpring = useSpringRaf(
@@ -124,24 +161,26 @@ const Card: React.FC<CardProps> = ({
     setPointerPosition(px, py);
 
     // Calculate rotation values
-    const rotateX = adjust(py, 0, 100, 15, -15);  // Y position maps to X rotation (inverted)
-    const rotateY = adjust(px, 0, 100, -15, 15);  // X position maps to Y rotation
+    const rotateX = adjust(py, 0, 100, 15, -15) * motionIntensity;  // Y position maps to X rotation (inverted)
+    const rotateY = adjust(px, 0, 100, -15, 15) * motionIntensity;  // X position maps to Y rotation
 
     // Calculate glare position (follows pointer with some offset)
     const glareX = px;
     const glareY = py;
 
     // Calculate background position (inverse of pointer for parallax effect)
-    const bgX = adjust(px, 0, 100, 60, 40);
-    const bgY = adjust(py, 0, 100, 60, 40);
+    const bgXBase = adjust(px, 0, 100, 60, 40);
+    const bgYBase = adjust(py, 0, 100, 60, 40);
+    const bgX = (bgXBase - 50) * motionIntensity + 50;
+    const bgY = (bgYBase - 50) * motionIntensity + 50;
 
     // Set spring targets
     rotateSpring.setTarget({ x: rotateX, y: rotateY });
     glareSpring.setTarget({ x: glareX, y: glareY });
     backgroundSpring.setTarget({ x: bgX, y: bgY });
-    scaleSpring.setTarget(1.05);
-    translateSpring.setTarget({ x: 0, y: -5 });
-  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition]);
+    scaleSpring.setTarget(activeScale);
+    translateSpring.setTarget({ x: 0, y: activeTranslateY });
+  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition, motionIntensity, activeScale, activeTranslateY]);
 
   // Reset to default state - for snap-back, jump to values instantly then slowly animate back
   const resetCard = useCallback(() => {
@@ -256,20 +295,20 @@ const Card: React.FC<CardProps> = ({
   );
 
   const applyOrientation = useCallback((state: OrientationState) => {
-    const limitX = 16;
-    const limitY = 18;
+    const limitX = prefersReducedMotion ? 10 : 16;
+    const limitY = prefersReducedMotion ? 12 : 18;
 
     const gamma = clamp(state.relative.gamma, -limitX, limitX);
     const beta = clamp(state.relative.beta, -limitY, limitY);
 
     const backgroundTarget = {
-      x: adjust(gamma, -limitX, limitX, 37, 63),
-      y: adjust(beta, -limitY, limitY, 33, 67),
+      x: (adjust(gamma, -limitX, limitX, 37, 63) - 50) * motionIntensity + 50,
+      y: (adjust(beta, -limitY, limitY, 33, 67) - 50) * motionIntensity + 50,
     };
 
     const rotateTarget = {
-      x: round(-gamma),
-      y: round(beta),
+      x: round(-gamma * motionIntensity),
+      y: round(beta * motionIntensity),
     };
 
     const glareTarget = {
@@ -280,10 +319,10 @@ const Card: React.FC<CardProps> = ({
     rotateSpring.setTarget(rotateTarget);
     glareSpring.setTarget(glareTarget);
     backgroundSpring.setTarget(backgroundTarget);
-    scaleSpring.setTarget(1.05);
-    translateSpring.setTarget({ x: 0, y: -5 });
+    scaleSpring.setTarget(activeScale);
+    translateSpring.setTarget({ x: 0, y: activeTranslateY });
     setPointerPosition(glareTarget.x, glareTarget.y);
-  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition]);
+  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition, prefersReducedMotion, motionIntensity, activeScale, activeTranslateY]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -364,7 +403,7 @@ const Card: React.FC<CardProps> = ({
 
   // Showcase animation effect
   useEffect(() => {
-    if (!showcase || isActive) return;
+    if (!showcase || isActive || prefersReducedMotion) return;
 
     // Start showcase after 2s delay
     showcaseTimeoutRef.current = setTimeout(() => {
@@ -408,10 +447,12 @@ const Card: React.FC<CardProps> = ({
         const bgY = 50 - Math.cos(r) * 10;
 
         // Update springs
-        rotateSpring.setTarget({ x: rotateX, y: rotateY });
+        rotateSpring.setTarget({ x: rotateX * motionIntensity, y: rotateY * motionIntensity });
         glareSpring.setTarget({ x: glareX, y: glareY });
-        backgroundSpring.setTarget({ x: bgX, y: bgY });
-        scaleSpring.setTarget(1.02);
+        const bgOffsetX = (bgX - 50) * motionIntensity;
+        const bgOffsetY = (bgY - 50) * motionIntensity;
+        backgroundSpring.setTarget({ x: 50 + bgOffsetX, y: 50 + bgOffsetY });
+        scaleSpring.setTarget(prefersReducedMotion ? 1 : 1.02);
 
         showcaseAnimationRef.current = requestAnimationFrame(animate);
       };
@@ -432,7 +473,7 @@ const Card: React.FC<CardProps> = ({
       orientationIdleFramesRef.current = 0;
       setIsShowcasing(false);
     };
-  }, [showcase, isActive, rotateSpring, glareSpring, backgroundSpring, scaleSpring, resetCard]);
+  }, [showcase, isActive, rotateSpring, glareSpring, backgroundSpring, scaleSpring, resetCard, prefersReducedMotion, motionIntensity]);
 
   // Build CSS classes
   const cardClasses = [
