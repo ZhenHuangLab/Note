@@ -430,7 +430,6 @@ const Card: React.FC<CardProps> = ({
     if (!showcase || !isDocumentVisible || prefersReducedMotion || isActive) return;
 
     let cancelled = false;
-    showcaseHasRunRef.current = false;
     const initialDelay = 2000;
     const cycleDuration = 4000; // 4 seconds
 
