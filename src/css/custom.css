@@ -7,6 +7,32 @@
 /* Import LXGW WenKai font from jsDelivr CDN */
 @import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/style.min.css');
 
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("JetBrains Mono Regular"), local("JetBrainsMono-Regular"),
+       url("https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.17/files/jetbrains-mono-latin-400-normal.woff2") format("woff2"),
+       url("/fonts/JetBrainsMono/jetbrains-mono-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  /* # Reason: Limit to Latin glyphs so Chinese characters still fall back to LXGW WenKai. */
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("JetBrains Mono Bold"), local("JetBrainsMono-Bold"),
+       url("https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.17/files/jetbrains-mono-latin-700-normal.woff2") format("woff2"),
+       url("/fonts/JetBrainsMono/jetbrains-mono-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+                 U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  /* # Reason: Provide bold weight so headings render without falling back to system fonts. */
+}
+
 /* You can override the default Infima variables here. */
 :root {
   --ifm-color-primary: #2e8555;
@@ -20,10 +46,9 @@
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 
   /* Set LXGW WenKai Screen as the primary font for Chinese text */
-  --ifm-font-family-base: "LXGW WenKai Screen", "LXGW WenKai", "Noto Sans SC", "Microsoft YaHei",
-                          -apple-system, BlinkMacSystemFont, "Segoe UI",
-                          Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
-                          "Helvetica Neue", sans-serif;
+  --ifm-font-family-base: "JetBrains Mono", "LXGW WenKai Screen", "LXGW WenKai", "Noto Sans SC",
+                          "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                          Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -53,9 +78,9 @@ body {
 
 /* Optimize code font to work well with Chinese characters */
 .theme-code-block {
-  --ifm-font-family-monospace: "Fira Code", "SF Mono", Monaco, Inconsolata,
-                               "Roboto Mono", "Source Code Pro", Menlo,
-                               Consolas, "DejaVu Sans Mono", monospace;
+  --ifm-font-family-monospace: "JetBrains Mono", "Fira Code", "SF Mono", Monaco,
+                               Inconsolata, "Roboto Mono", "Source Code Pro",
+                               Menlo, Consolas, "DejaVu Sans Mono", monospace;
 }
 
 .homepage-card__wrapper {
