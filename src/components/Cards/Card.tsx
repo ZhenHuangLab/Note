@@ -72,6 +72,9 @@ const Card: React.FC<CardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const [isActive, setIsActive] = useState(false);
   const [isShowcasing, setIsShowcasing] = useState(false);
+  const [isDocumentVisible, setIsDocumentVisible] = useState(
+    typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
+  );
   const prefersReducedMotion = usePrefersReducedMotion();
   const showcaseTimeoutRef = useRef<NodeJS.Timeout>();
   const showcaseAnimationRef = useRef<number>();
@@ -394,7 +397,28 @@ const Card: React.FC<CardProps> = ({
     cardRef.current.style.setProperty('--pointer-from-top', '0.5');
     cardRef.current.style.setProperty('--pointer-from-left', '0.5');
     cardRef.current.style.setProperty('--card-opacity', '1');
-    // These are now set by the springs with proper units
+  }, []);
+
+  // Track document visibility changes
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibilityChange = () => {
+      const visible = document.visibilityState === 'visible';
+      setIsDocumentVisible(visible);
+      if (!visible) {
+        // Stop showcase when document becomes hidden
+        setIsShowcasing(false);
+        if (showcaseAnimationRef.current) {
+          cancelAnimationFrame(showcaseAnimationRef.current);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -403,32 +427,68 @@ const Card: React.FC<CardProps> = ({
 
   // Showcase animation effect
   useEffect(() => {
-    if (!showcase || isActive || prefersReducedMotion) return;
+    // Only start showcase if:
+    // 1. showcase prop is true
+    // 2. document is visible
+    // 3. reduced motion is not preferred
+    if (!showcase || !isDocumentVisible || prefersReducedMotion || isActive) return;
 
-    // Start showcase after 2s delay
-    showcaseTimeoutRef.current = setTimeout(() => {
+    let cancelled = false;
+    const initialDelay = 2000;
+    const cycleDuration = 4000; // 4 seconds
+    const loopIdleDelay = 2000;
+
+    const clearShowcaseTimeout = () => {
+      if (showcaseTimeoutRef.current) {
+        clearTimeout(showcaseTimeoutRef.current);
+        showcaseTimeoutRef.current = undefined;
+      }
+    };
+
+    const stopAnimation = () => {
+      if (showcaseAnimationRef.current) {
+        cancelAnimationFrame(showcaseAnimationRef.current);
+        showcaseAnimationRef.current = undefined;
+      }
+    };
+
+    const finalizeCycle = (scheduleNext: boolean, resetSprings: boolean) => {
+      stopAnimation();
+      if (cancelled) return;
+
+      if (resetSprings) {
+        controllerRef.current = 'idle';
+        orientationEngagedRef.current = false;
+        orientationReadyRef.current = false;
+        orientationIdleFramesRef.current = 0;
+        resetCard();
+      }
+
+      setIsShowcasing(false);
+
+      if (scheduleNext && !cancelled) {
+        scheduleShowcaseCycle(loopIdleDelay);
+      }
+    };
+
+    const startShowcaseCycle = () => {
+      if (cancelled) return;
+
       controllerRef.current = 'showcase';
       orientationEngagedRef.current = false;
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
       setIsShowcasing(true);
-      const startTime = Date.now();
-      const duration = 4000; // 4 seconds
+      const startTime = performance.now();
 
-      const animate = () => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        if (progress >= 1) {
-          // Animation complete, reset
-          controllerRef.current = 'idle';
-          orientationEngagedRef.current = false;
-          orientationReadyRef.current = false;
-          orientationIdleFramesRef.current = 0;
-          setIsShowcasing(false);
-          resetCard();
+      const step = (timestamp: number) => {
+        if (cancelled || controllerRef.current !== 'showcase') {
+          finalizeCycle(true, false);
           return;
         }
+
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / cycleDuration, 1);
 
         // Sine wave animation matching reference implementation
         // r += 0.05 per frame (~60fps) for full cycle in 4s
@@ -454,26 +514,48 @@ const Card: React.FC<CardProps> = ({
         backgroundSpring.setTarget({ x: 50 + bgOffsetX, y: 50 + bgOffsetY });
         scaleSpring.setTarget(prefersReducedMotion ? 1 : 1.02);
 
-        showcaseAnimationRef.current = requestAnimationFrame(animate);
+        if (progress >= 1) {
+          finalizeCycle(true, true);
+          return;
+        }
+
+        showcaseAnimationRef.current = requestAnimationFrame(step);
       };
 
-      showcaseAnimationRef.current = requestAnimationFrame(animate);
-    }, 2000);
+      showcaseAnimationRef.current = requestAnimationFrame(step);
+    };
+
+    function scheduleShowcaseCycle(delay: number) {
+      clearShowcaseTimeout();
+      showcaseTimeoutRef.current = setTimeout(() => {
+        showcaseTimeoutRef.current = undefined;
+
+        if (cancelled || !showcase || !isDocumentVisible || prefersReducedMotion) {
+          return;
+        }
+
+        if (controllerRef.current !== 'idle') {
+          scheduleShowcaseCycle(loopIdleDelay);
+          return;
+        }
+
+        startShowcaseCycle();
+      }, delay);
+    }
+
+    scheduleShowcaseCycle(initialDelay);
 
     return () => {
-      if (showcaseTimeoutRef.current) {
-        clearTimeout(showcaseTimeoutRef.current);
-      }
-      if (showcaseAnimationRef.current) {
-        cancelAnimationFrame(showcaseAnimationRef.current);
-      }
+      cancelled = true;
+      clearShowcaseTimeout();
+      stopAnimation();
       controllerRef.current = 'idle';
       orientationEngagedRef.current = false;
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
       setIsShowcasing(false);
     };
-  }, [showcase, isActive, rotateSpring, glareSpring, backgroundSpring, scaleSpring, resetCard, prefersReducedMotion, motionIntensity]);
+  }, [showcase, isDocumentVisible, isActive, rotateSpring, glareSpring, backgroundSpring, scaleSpring, resetCard, prefersReducedMotion, motionIntensity]);
 
   // Build CSS classes
   const cardClasses = [
