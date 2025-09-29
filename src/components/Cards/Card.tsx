@@ -71,7 +71,6 @@ const Card: React.FC<CardProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isActive, setIsActive] = useState(false);
-  const [isShowcasing, setIsShowcasing] = useState(false);
   const [isDocumentVisible, setIsDocumentVisible] = useState(
     typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
   );
@@ -83,6 +82,7 @@ const Card: React.FC<CardProps> = ({
   const orientationReadyRef = useRef(false);
   const orientationIdleFramesRef = useRef(0);
   const showcasingRef = useRef(false);
+  const showcaseHasRunRef = useRef(false);
 
   // Always use interactive config for springs, control behavior via target values
   const springConfig = { stiffness: 0.15, damping: 0.8, precision: 0.01 };
@@ -211,7 +211,7 @@ const Card: React.FC<CardProps> = ({
     orientationEngagedRef.current = false;
     orientationReadyRef.current = false;
     orientationIdleFramesRef.current = 0;
-    setIsShowcasing(false);
+    showcasingRef.current = false;
     setIsActive(true);
     updateFromPointer(e.clientX, e.clientY);
   }, [updateFromPointer]);
@@ -241,7 +241,7 @@ const Card: React.FC<CardProps> = ({
       orientationEngagedRef.current = false;
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
-      setIsShowcasing(false);
+      showcasingRef.current = false;
       setIsActive(true);
       updateFromPointer(e.touches[0].clientX, e.touches[0].clientY);
     }
@@ -408,7 +408,7 @@ const Card: React.FC<CardProps> = ({
       setIsDocumentVisible(visible);
       if (!visible) {
         // Stop showcase when document becomes hidden
-        setIsShowcasing(false);
+        showcasingRef.current = false;
         if (showcaseAnimationRef.current) {
           cancelAnimationFrame(showcaseAnimationRef.current);
         }
@@ -421,10 +421,6 @@ const Card: React.FC<CardProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    showcasingRef.current = isShowcasing;
-  }, [isShowcasing]);
-
   // Showcase animation effect
   useEffect(() => {
     // Only start showcase if:
@@ -434,9 +430,9 @@ const Card: React.FC<CardProps> = ({
     if (!showcase || !isDocumentVisible || prefersReducedMotion || isActive) return;
 
     let cancelled = false;
+    showcaseHasRunRef.current = false;
     const initialDelay = 2000;
     const cycleDuration = 4000; // 4 seconds
-    const loopIdleDelay = 2000;
 
     const clearShowcaseTimeout = () => {
       if (showcaseTimeoutRef.current) {
@@ -452,7 +448,7 @@ const Card: React.FC<CardProps> = ({
       }
     };
 
-    const finalizeCycle = (scheduleNext: boolean, resetSprings: boolean) => {
+    const finalizeCycle = (resetSprings: boolean) => {
       stopAnimation();
       if (cancelled) return;
 
@@ -464,11 +460,8 @@ const Card: React.FC<CardProps> = ({
         resetCard();
       }
 
-      setIsShowcasing(false);
-
-      if (scheduleNext && !cancelled) {
-        scheduleShowcaseCycle(loopIdleDelay);
-      }
+      showcasingRef.current = false;
+      showcaseHasRunRef.current = true;
     };
 
     const startShowcaseCycle = () => {
@@ -478,12 +471,12 @@ const Card: React.FC<CardProps> = ({
       orientationEngagedRef.current = false;
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
-      setIsShowcasing(true);
+      showcasingRef.current = true;
       const startTime = performance.now();
 
       const step = (timestamp: number) => {
         if (cancelled || controllerRef.current !== 'showcase') {
-          finalizeCycle(true, false);
+          finalizeCycle(false);
           return;
         }
 
@@ -494,28 +487,45 @@ const Card: React.FC<CardProps> = ({
         // r += 0.05 per frame (~60fps) for full cycle in 4s
         const r = progress * Math.PI * 2; // Full rotation over 4s
 
-        // Rotation: X axis varies more than Y
-        const rotateX = Math.sin(r) * 15;
-        const rotateY = Math.cos(r) * 7.5;
+        // Rotation range - target approximately ±10deg on X and slightly less on Y
+        const rotateAmplitudeX = prefersReducedMotion ? 8 : 10;
+        const rotateAmplitudeY = prefersReducedMotion ? 5 : 6.5;
+        const rotateX = Math.sin(r) * rotateAmplitudeX;
+        const rotateY = Math.cos(r) * rotateAmplitudeY;
 
-        // Glare follows a different phase
-        const glareX = 50 + Math.sin(r + Math.PI / 4) * 40;
-        const glareY = 50 + Math.cos(r + Math.PI / 4) * 40;
+        // Glare follows a different phase with moderate sweep
+        const glareBase = 50;
+        const glareAmplitude = prefersReducedMotion ? 30 : 45;
+        const glareX = glareBase + Math.sin(r + Math.PI / 4) * glareAmplitude;
+        const glareY = glareBase + Math.cos(r + Math.PI / 4) * glareAmplitude;
 
-        // Background moves inversely
-        const bgX = 50 - Math.sin(r) * 10;
-        const bgY = 50 - Math.cos(r) * 10;
+        // Background moves inversely with subtle parallax
+        const bgAmplitude = prefersReducedMotion ? 8 : 12;
+        const bgX = 50 - Math.sin(r) * bgAmplitude;
+        const bgY = 50 - Math.cos(r) * bgAmplitude;
 
         // Update springs
+        if (cardRef.current) {
+          cardRef.current.style.setProperty('--rotate-x', `${rotateX * motionIntensity}deg`);
+          cardRef.current.style.setProperty('--rotate-y', `${rotateY * motionIntensity}deg`);
+          cardRef.current.style.setProperty('--glare-x', `${glareX}%`);
+          cardRef.current.style.setProperty('--glare-y', `${glareY}%`);
+          cardRef.current.style.setProperty('--background-x', `${50 + (bgX - 50) * motionIntensity}%`);
+          cardRef.current.style.setProperty('--background-y', `${50 + (bgY - 50) * motionIntensity}%`);
+          cardRef.current.style.setProperty('--card-scale', `${prefersReducedMotion ? 1.005 : 1.02}`);
+          cardRef.current.style.setProperty('--translate-y', `${prefersReducedMotion ? -1.5 : -3}px`);
+        }
+
         rotateSpring.setTarget({ x: rotateX * motionIntensity, y: rotateY * motionIntensity });
         glareSpring.setTarget({ x: glareX, y: glareY });
         const bgOffsetX = (bgX - 50) * motionIntensity;
         const bgOffsetY = (bgY - 50) * motionIntensity;
         backgroundSpring.setTarget({ x: 50 + bgOffsetX, y: 50 + bgOffsetY });
-        scaleSpring.setTarget(prefersReducedMotion ? 1 : 1.02);
+        scaleSpring.setTarget(prefersReducedMotion ? 1.005 : 1.02);
+        translateSpring.setTarget({ x: 0, y: prefersReducedMotion ? -1.5 : -3 });
 
         if (progress >= 1) {
-          finalizeCycle(true, true);
+          finalizeCycle(true);
           return;
         }
 
@@ -525,25 +535,21 @@ const Card: React.FC<CardProps> = ({
       showcaseAnimationRef.current = requestAnimationFrame(step);
     };
 
-    function scheduleShowcaseCycle(delay: number) {
+    const scheduleAttempt = (delay: number) => {
       clearShowcaseTimeout();
+      if (showcaseHasRunRef.current) return;
       showcaseTimeoutRef.current = setTimeout(() => {
         showcaseTimeoutRef.current = undefined;
 
-        if (cancelled || !showcase || !isDocumentVisible || prefersReducedMotion) {
-          return;
-        }
-
-        if (controllerRef.current !== 'idle') {
-          scheduleShowcaseCycle(loopIdleDelay);
+        if (cancelled || !showcase || !isDocumentVisible || prefersReducedMotion || showcaseHasRunRef.current) {
           return;
         }
 
         startShowcaseCycle();
       }, delay);
-    }
+    };
 
-    scheduleShowcaseCycle(initialDelay);
+    scheduleAttempt(initialDelay);
 
     return () => {
       cancelled = true;
@@ -553,7 +559,7 @@ const Card: React.FC<CardProps> = ({
       orientationEngagedRef.current = false;
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
-      setIsShowcasing(false);
+      showcasingRef.current = false;
     };
   }, [showcase, isDocumentVisible, isActive, rotateSpring, glareSpring, backgroundSpring, scaleSpring, resetCard, prefersReducedMotion, motionIntensity]);
 
