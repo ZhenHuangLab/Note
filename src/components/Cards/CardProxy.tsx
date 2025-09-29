@@ -1,6 +1,6 @@
 import React from 'react';
 import Card, { CardProps } from './Card';
-import alternateArts from './alternate-arts';
+import { isAlternateArtId } from './alternate-arts';
 
 type StringLike = string | number;
 
@@ -205,6 +205,7 @@ const CardProxy: React.FC<CardProxyProps> = (props) => {
   } = props;
 
   const numberId = normalizeString(number);
+  const normalizedId = normalizeString(id);
   const setId = normalizeString(set);
   const subtypesValue = normalizeList(subtypes) ?? '';
   const typesValue = normalizeList(types);
@@ -217,7 +218,7 @@ const CardProxy: React.FC<CardProxyProps> = (props) => {
 
   const isShiny = Boolean(numberId && numberId.toLowerCase().startsWith('sv'));
   const isGallery = Boolean(numberId && /^[tg]g/i.test(numberId));
-  const isAlternate = Boolean(id && alternateArts.includes(id) && !isShiny && !isGallery);
+  const isAlternate = Boolean(normalizedId && isAlternateArtId(normalizedId) && !isShiny && !isGallery);
 
   const baseImg = buildCardImage(img, setId, numberId);
 

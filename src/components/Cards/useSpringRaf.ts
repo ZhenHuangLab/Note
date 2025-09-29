@@ -8,10 +8,17 @@ interface SpringConfig {
   precision?: number;
 }
 
+interface SpringSetOptions {
+  soft?: boolean | number;
+  hard?: boolean;
+}
+
 interface SpringControls {
-  setTarget: (value: SpringValue) => void;
+  setTarget: (value: SpringValue, options?: SpringSetOptions) => void;
+  setConfig: (config: Partial<SpringConfig>) => void;
   jump: (value: SpringValue) => void;
   stop: () => void;
+  getVelocity: () => SpringValue;
 }
 
 /**
@@ -241,13 +248,41 @@ export function useSpringRaf(
   const currentRef = useRef<SpringValue>(cloneValue(initialValue));
   const lastValueRef = useRef<SpringValue>(cloneValue(initialValue));
   const targetRef = useRef<SpringValue>(cloneValue(initialValue));
+
+  // Initialize velocity tracking
+  const initVelocity = (): SpringValue => {
+    if (isObject) {
+      const keys = Object.keys(initialValue as Record<string, number>);
+      const velocity: Record<string, number> = {};
+      keys.forEach(key => {
+        velocity[key] = 0;
+      });
+      return velocity;
+    }
+    return 0;
+  };
+
+  const velocityRef = useRef<SpringValue>(initVelocity());
   const initializedRef = useRef(false);
   const isAnimatingRef = useRef(false);
   const isVisibleRef = useRef(true);
 
-  const stiffness = config.stiffness ?? 0.15;
-  const damping = config.damping ?? 0.8;
-  const precision = config.precision ?? 0.01;
+  // Store config in refs so they can be updated dynamically
+  const stiffnessRef = useRef(config.stiffness ?? 0.15);
+  const dampingRef = useRef(config.damping ?? 0.8);
+  const precisionRef = useRef(config.precision ?? 0.01);
+  const baseConfigRef = useRef({
+    stiffness: stiffnessRef.current,
+    damping: dampingRef.current,
+    precision: precisionRef.current,
+  });
+
+  const restoreBaseConfig = () => {
+    const base = baseConfigRef.current;
+    stiffnessRef.current = base.stiffness;
+    dampingRef.current = base.damping;
+    precisionRef.current = base.precision;
+  };
 
   if (isObject) {
     const keys = keyOrderRef.current as string[];
@@ -259,7 +294,7 @@ export function useSpringRaf(
     }
   }
 
-  const trackRef = useRef<SpringTrack>();
+  const trackRef = useRef<SpringTrack | undefined>(undefined);
 
   if (!trackRef.current) {
     trackRef.current = {
@@ -267,6 +302,7 @@ export function useSpringRaf(
         const element = elementRef.current;
         if (!element) {
           isAnimatingRef.current = false;
+          restoreBaseConfig();
           return false;
         }
 
@@ -279,18 +315,22 @@ export function useSpringRaf(
           const current = currentRef.current as Record<string, number>;
           const last = lastValueRef.current as Record<string, number>;
           const target = targetRef.current as Record<string, number>;
+          const velocities = velocityRef.current as Record<string, number>;
           const nextValue: Record<string, number> = {};
 
           for (let i = 0; i < keys.length; i++) {
             const key = keys[i];
             const delta = target[key] - current[key];
             const velocity = (current[key] - last[key]) / (dt || 1 / 60);
-            const spring = stiffness * delta;
-            const damper = damping * velocity;
+            const spring = stiffnessRef.current * delta;
+            const damper = dampingRef.current * velocity;
             const acceleration = spring - damper;
             const d = (velocity + acceleration) * dt;
 
-            if (Math.abs(d) < precision && Math.abs(delta) < precision) {
+            // Track velocity for inertial effects
+            velocities[key] = velocity;
+
+            if (Math.abs(d) < precisionRef.current && Math.abs(delta) < precisionRef.current) {
               nextValue[key] = target[key];
             } else {
               nextValue[key] = current[key] + d;
@@ -312,13 +352,16 @@ export function useSpringRaf(
           const target = targetRef.current as number;
           const delta = target - current;
           const velocity = (current - last) / (dt || 1 / 60);
-          const spring = stiffness * delta;
-          const damper = damping * velocity;
+          const spring = stiffnessRef.current * delta;
+          const damper = dampingRef.current * velocity;
           const acceleration = spring - damper;
           const d = (velocity + acceleration) * dt;
 
+          // Track velocity for inertial effects
+          velocityRef.current = velocity as SpringValue;
+
           let nextValue: number;
-          if (Math.abs(d) < precision && Math.abs(delta) < precision) {
+          if (Math.abs(d) < precisionRef.current && Math.abs(delta) < precisionRef.current) {
             nextValue = target;
           } else {
             nextValue = current + d;
@@ -331,6 +374,7 @@ export function useSpringRaf(
         }
 
         if (settled) {
+          restoreBaseConfig();
           isAnimatingRef.current = false;
           return false;
         }
@@ -403,9 +447,26 @@ export function useSpringRaf(
     };
   }, [scheduler, track]);
 
-  const setTarget = (value: SpringValue): void => {
+  const setTarget = (value: SpringValue, options?: SpringSetOptions): void => {
     if (!valuesCompatible(currentRef.current, value)) {
       console.error('useSpringRaf: target value structure incompatible with current value');
+      return;
+    }
+
+    restoreBaseConfig();
+
+    // Handle soft transition by temporarily reducing stiffness/damping
+    if (options?.soft) {
+      const base = baseConfigRef.current;
+      const rawFactor = typeof options.soft === 'number' ? options.soft : 0.1;
+      const softFactor = Math.max(0.01, rawFactor);
+      stiffnessRef.current = base.stiffness * softFactor;
+      dampingRef.current = base.damping * softFactor;
+    }
+
+    // Handle hard transition by jumping immediately
+    if (options?.hard) {
+      jump(value);
       return;
     }
 
@@ -414,16 +475,44 @@ export function useSpringRaf(
     scheduler.ensure(track);
   };
 
+  const setConfig = (newConfig: Partial<SpringConfig>): void => {
+    if (newConfig.stiffness !== undefined) {
+      baseConfigRef.current.stiffness = newConfig.stiffness;
+      stiffnessRef.current = newConfig.stiffness;
+    }
+    if (newConfig.damping !== undefined) {
+      baseConfigRef.current.damping = newConfig.damping;
+      dampingRef.current = newConfig.damping;
+    }
+    if (newConfig.precision !== undefined) {
+      baseConfigRef.current.precision = newConfig.precision;
+      precisionRef.current = newConfig.precision;
+    }
+  };
+
   const jump = (value: SpringValue): void => {
     if (!valuesCompatible(currentRef.current, value)) {
       console.error('useSpringRaf: jump value structure incompatible with current value');
       return;
     }
 
+    restoreBaseConfig();
+
     const cloned = cloneValue(value);
     currentRef.current = cloned;
     lastValueRef.current = cloneValue(cloned);
     targetRef.current = cloneValue(cloned);
+
+    // Reset velocity on jump
+    if (isObject) {
+      const keys = keyOrderRef.current as string[];
+      const velocities = velocityRef.current as Record<string, number>;
+      keys.forEach(key => {
+        velocities[key] = 0;
+      });
+    } else {
+      velocityRef.current = 0 as SpringValue;
+    }
 
     const element = elementRef.current;
     if (element) {
@@ -451,5 +540,9 @@ export function useSpringRaf(
     scheduler.remove(track);
   };
 
-  return { setTarget, jump, stop };
+  const getVelocity = (): SpringValue => {
+    return cloneValue(velocityRef.current);
+  };
+
+  return { setTarget, setConfig, jump, stop, getVelocity };
 }

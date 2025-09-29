@@ -12,13 +12,18 @@ export default function CardHud({ cardRef }: Props) {
   const [vars, setVars] = useState(() => ({
     rotX: '0deg',
     rotY: '0deg',
+    rotDeltaX: '0deg',
+    rotDeltaY: '0deg',
     glareX: '50%',
     glareY: '50%',
+    opacity: '0',
     bgX: '50%',
     bgY: '50%',
     ptrX: '50%',
     ptrY: '50%',
     scale: '1',
+    translateX: '0px',
+    translateY: '0px',
   }));
 
   useEffect(() => {
@@ -32,13 +37,18 @@ export default function CardHud({ cardRef }: Props) {
       setVars({
         rotX: cs.getPropertyValue('--rotate-x').trim() || '0deg',
         rotY: cs.getPropertyValue('--rotate-y').trim() || '0deg',
+        rotDeltaX: cs.getPropertyValue('--rotate-delta-x').trim() || '0deg',
+        rotDeltaY: cs.getPropertyValue('--rotate-delta-y').trim() || '0deg',
         glareX: cs.getPropertyValue('--glare-x').trim() || '50%',
         glareY: cs.getPropertyValue('--glare-y').trim() || '50%',
+        opacity: cs.getPropertyValue('--card-opacity').trim() || '0',
         bgX: cs.getPropertyValue('--background-x').trim() || '50%',
         bgY: cs.getPropertyValue('--background-y').trim() || '50%',
         ptrX: cs.getPropertyValue('--pointer-x').trim() || '50%',
         ptrY: cs.getPropertyValue('--pointer-y').trim() || '50%',
         scale: cs.getPropertyValue('--card-scale').trim() || '1',
+        translateX: cs.getPropertyValue('--translate-x').trim() || '0px',
+        translateY: cs.getPropertyValue('--translate-y').trim() || '0px',
       });
       timer = window.setTimeout(read, 100);
     };
@@ -51,10 +61,13 @@ export default function CardHud({ cardRef }: Props) {
   const hud = useMemo(
     () => [
       line('rot', `${vars.rotX}, ${vars.rotY}`),
+      line('rotΔ', `${vars.rotDeltaX}, ${vars.rotDeltaY}`),
       line('glare', `${vars.glareX}, ${vars.glareY}`),
+      line('opacity', vars.opacity),
       line('bg', `${vars.bgX}, ${vars.bgY}`),
       line('ptr', `${vars.ptrX}, ${vars.ptrY}`),
       line('scale', vars.scale),
+      line('translate', `${vars.translateX}, ${vars.translateY}`),
     ],
     [vars]
   );
@@ -87,4 +100,3 @@ export default function CardHud({ cardRef }: Props) {
     </div>
   );
 }
-

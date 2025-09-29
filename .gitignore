@@ -7,3 +7,4 @@ node_modules/
 .docusaurus/
 build/
 .playwright-mcp/
+note-homepage-cards-main/

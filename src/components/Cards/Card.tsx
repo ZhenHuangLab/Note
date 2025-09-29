@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSpringRaf } from './useSpringRaf';
 import CardHud from './CardHud';
 import { adjust, clamp, round } from './math';
@@ -71,69 +71,86 @@ const Card: React.FC<CardProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isActive, setIsActive] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
   const [isDocumentVisible, setIsDocumentVisible] = useState(
     typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
   );
   const prefersReducedMotion = usePrefersReducedMotion();
-  const showcaseTimeoutRef = useRef<NodeJS.Timeout>();
-  const showcaseAnimationRef = useRef<number>();
+  const showcaseTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const showcaseAnimationRef = useRef<number | undefined>(undefined);
   const controllerRef = useRef<'idle' | 'pointer' | 'orientation' | 'showcase'>('idle');
   const orientationEngagedRef = useRef(false);
   const orientationReadyRef = useRef(false);
   const orientationIdleFramesRef = useRef(0);
   const showcasingRef = useRef(false);
   const showcaseHasRunRef = useRef(false);
+  const releaseTimeoutRef = useRef<number | undefined>(undefined);
+  const pointerPositionRef = useRef({ x: 50, y: 50 });
 
-  // Always use interactive config for springs, control behavior via target values
-  const springConfig = { stiffness: 0.15, damping: 0.8, precision: 0.01 };
+  const springInteractiveConfig = useMemo(
+    () => ({ stiffness: 0.066, damping: 0.25, precision: 0.001 }),
+    []
+  );
+  const springPopoverConfig = useMemo(
+    () => ({ stiffness: 0.033, damping: 0.45, precision: 0.001 }),
+    []
+  );
 
   const motionIntensity = prefersReducedMotion ? 0.6 : 1;
-  const activeScale = prefersReducedMotion ? 1.02 : 1.05;
-  const activeTranslateY = prefersReducedMotion ? -2 : -5;
+  const activeScale = prefersReducedMotion ? 1.015 : 1.06;
+  const activeTranslateY = prefersReducedMotion ? -2 : -6;
+  const glareActiveOpacity = prefersReducedMotion ? 0.65 : 1;
+  const snapSoftFactor = prefersReducedMotion ? 0.28 : 0.16;
 
-  // Initialize springs for different CSS variable groups
   const rotateSpring = useSpringRaf(
     { x: 0, y: 0 },
-    springConfig,
+    springInteractiveConfig,
     cardRef,
     ['--rotate-x', '--rotate-y']
   );
 
-  const glareSpring = useSpringRaf(
-    { x: 50, y: 50 },
-    springConfig,
+  const rotateDeltaSpring = useSpringRaf(
+    { x: 0, y: 0 },
+    springPopoverConfig,
     cardRef,
-    ['--glare-x', '--glare-y']
+    ['--rotate-delta-x', '--rotate-delta-y']
+  );
+
+  const glareSpring = useSpringRaf(
+    { x: 50, y: 50, o: 0 },
+    springInteractiveConfig,
+    cardRef,
+    ['--glare-x', '--glare-y', '--card-opacity']
   );
 
   const backgroundSpring = useSpringRaf(
     { x: 50, y: 50 },
-    springConfig,
+    springInteractiveConfig,
     cardRef,
     ['--background-x', '--background-y']
   );
 
   const scaleSpring = useSpringRaf(
     1,
-    springConfig,
+    springPopoverConfig,
     cardRef,
     '--card-scale'
   );
 
   const translateSpring = useSpringRaf(
     { x: 0, y: 0 },
-    springConfig,
+    springPopoverConfig,
     cardRef,
     ['--translate-x', '--translate-y']
   );
 
-  // Pointer position tracking (not spring-animated)
+  const randomSeedRef = useRef({ x: Math.random(), y: Math.random() });
+
   const setPointerPosition = useCallback((x: number, y: number) => {
     if (!cardRef.current) return;
     cardRef.current.style.setProperty('--pointer-x', `${x}%`);
     cardRef.current.style.setProperty('--pointer-y', `${y}%`);
 
-    // Calculate derived values
     const fromCenterX = (x - 50) / 50;
     const fromCenterY = (y - 50) / 50;
     const fromCenter = Math.sqrt(fromCenterX * fromCenterX + fromCenterY * fromCenterY);
@@ -143,127 +160,182 @@ const Card: React.FC<CardProps> = ({
     cardRef.current.style.setProperty('--pointer-from-left', String(x / 100));
   }, []);
 
-  // Calculate values from pointer position
-  const updateFromPointer = useCallback((clientX: number, clientY: number) => {
-    if (!cardRef.current) return;
-
-    controllerRef.current = 'pointer';
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
-
-    const rect = cardRef.current.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * 100;
-    const y = ((clientY - rect.top) / rect.height) * 100;
-
-    // Clamp to valid range
-    const px = clamp(x, 0, 100);
-    const py = clamp(y, 0, 100);
-
-    // Update pointer position immediately (no spring)
-    setPointerPosition(px, py);
-
-    // Calculate rotation values
-    const rotateX = adjust(py, 0, 100, 15, -15) * motionIntensity;  // Y position maps to X rotation (inverted)
-    const rotateY = adjust(px, 0, 100, -15, 15) * motionIntensity;  // X position maps to Y rotation
-
-    // Calculate glare position (follows pointer with some offset)
-    const glareX = px;
-    const glareY = py;
-
-    // Calculate background position (inverse of pointer for parallax effect)
-    const bgXBase = adjust(px, 0, 100, 60, 40);
-    const bgYBase = adjust(py, 0, 100, 60, 40);
-    const bgX = (bgXBase - 50) * motionIntensity + 50;
-    const bgY = (bgYBase - 50) * motionIntensity + 50;
-
-    // Set spring targets
-    rotateSpring.setTarget({ x: rotateX, y: rotateY });
-    glareSpring.setTarget({ x: glareX, y: glareY });
-    backgroundSpring.setTarget({ x: bgX, y: bgY });
-    scaleSpring.setTarget(activeScale);
-    translateSpring.setTarget({ x: 0, y: activeTranslateY });
-  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition, motionIntensity, activeScale, activeTranslateY]);
-
-  // Reset to default state - for snap-back, jump to values instantly then slowly animate back
-  const resetCard = useCallback(() => {
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
-    if (controllerRef.current !== 'pointer') {
-      controllerRef.current = 'idle';
+  const clearReleaseTimeout = useCallback(() => {
+    if (typeof releaseTimeoutRef.current === 'number') {
+      clearTimeout(releaseTimeoutRef.current);
+      releaseTimeoutRef.current = undefined;
     }
+  }, []);
 
-    setPointerPosition(50, 50);
+  const releaseToIdle = useCallback(
+    (withInertia: boolean = true) => {
+      clearReleaseTimeout();
 
-    // For snap-back effect, we need to slowly animate back
-    // Jump to current position first, then set target to default
-    rotateSpring.setTarget({ x: 0, y: 0 });
-    glareSpring.setTarget({ x: 50, y: 50 });
-    backgroundSpring.setTarget({ x: 50, y: 50 });
-    scaleSpring.setTarget(1);
-    translateSpring.setTarget({ x: 0, y: 0 });
-  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition]);
+      orientationEngagedRef.current = false;
+      orientationReadyRef.current = false;
+      orientationIdleFramesRef.current = 0;
 
-  // Event handlers
-  const handlePointerEnter = useCallback((e: React.PointerEvent) => {
-    controllerRef.current = 'pointer';
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
-    showcasingRef.current = false;
-    setIsActive(true);
-    updateFromPointer(e.clientX, e.clientY);
-  }, [updateFromPointer]);
+      const rotateVelocity = rotateSpring.getVelocity() as Record<string, number>;
+      const glareVelocity = glareSpring.getVelocity() as Record<string, number>;
+      const backgroundVelocity = backgroundSpring.getVelocity() as Record<string, number>;
 
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    controllerRef.current = 'pointer';
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
-    if (!isActive) return;
-    updateFromPointer(e.clientX, e.clientY);
-  }, [isActive, updateFromPointer]);
+      const inertiaRotateScale = prefersReducedMotion ? 4 : 10;
+      const inertiaGlareScale = prefersReducedMotion ? 3 : 8;
 
-  const handlePointerLeave = useCallback(() => {
-    controllerRef.current = 'idle';
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
-    setIsActive(false);
-    resetCard();
-  }, [resetCard]);
+      if (withInertia) {
+        rotateSpring.setTarget({
+          x: clamp((rotateVelocity.x ?? 0) * inertiaRotateScale, -20, 20),
+          y: clamp((rotateVelocity.y ?? 0) * inertiaRotateScale, -20, 20),
+        }, { soft: 0.5 });
 
-  // Touch event handlers (unified with pointer events)
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
+        glareSpring.setTarget({
+          x: clamp(50 + (glareVelocity.x ?? 0) * inertiaGlareScale, 0, 100),
+          y: clamp(50 + (glareVelocity.y ?? 0) * inertiaGlareScale, 0, 100),
+          o: clamp((glareVelocity.o ?? 0) * 0.35 + 0.35, 0, 1),
+        }, { soft: 0.45 });
+
+        backgroundSpring.setTarget({
+          x: clamp(50 + (backgroundVelocity.x ?? 0) * (inertiaGlareScale * 0.35), 30, 70),
+          y: clamp(50 + (backgroundVelocity.y ?? 0) * (inertiaGlareScale * 0.35), 30, 70),
+        }, { soft: 0.45 });
+      }
+
+      releaseTimeoutRef.current = window.setTimeout(() => {
+        rotateSpring.setTarget({ x: 0, y: 0 }, { soft: snapSoftFactor });
+        rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: snapSoftFactor });
+        glareSpring.setTarget({ x: 50, y: 50, o: 0 }, { soft: snapSoftFactor });
+        backgroundSpring.setTarget({ x: 50, y: 50 }, { soft: snapSoftFactor });
+        scaleSpring.setTarget(1, { soft: snapSoftFactor });
+        translateSpring.setTarget({ x: 0, y: 0 }, { soft: snapSoftFactor });
+        setPointerPosition(50, 50);
+      }, withInertia ? 120 : 0);
+
+      controllerRef.current = 'idle';
+      setIsActive(false);
+      setIsInteracting(false);
+    },
+    [
+      backgroundSpring,
+      clearReleaseTimeout,
+      glareSpring,
+      prefersReducedMotion,
+      rotateDeltaSpring,
+      rotateSpring,
+      scaleSpring,
+      setPointerPosition,
+      snapSoftFactor,
+      translateSpring,
+    ]
+  );
+
+  const updateFromPointer = useCallback(
+    (clientX: number, clientY: number) => {
+      const element = cardRef.current;
+      if (!element) return;
+
       controllerRef.current = 'pointer';
       orientationEngagedRef.current = false;
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
-      showcasingRef.current = false;
+
+      const rect = element.getBoundingClientRect();
+      const px = clamp(((clientX - rect.left) / rect.width) * 100, 0, 100);
+      const py = clamp(((clientY - rect.top) / rect.height) * 100, 0, 100);
+
+      pointerPositionRef.current = { x: px, y: py };
+      setPointerPosition(px, py);
+
+      const centerX = px - 50;
+      const centerY = py - 50;
+
+      const rotateTarget = {
+        x: round(-(centerX / 3.5) * motionIntensity),
+        y: round((centerY / 2) * motionIntensity),
+      };
+
+      const glareTarget = {
+        x: px,
+        y: py,
+        o: glareActiveOpacity,
+      };
+
+      const backgroundTarget = {
+        x: (adjust(px, 0, 100, 37, 63) - 50) * motionIntensity + 50,
+        y: (adjust(py, 0, 100, 33, 67) - 50) * motionIntensity + 50,
+      };
+
+      rotateSpring.setTarget(rotateTarget);
+      glareSpring.setTarget(glareTarget);
+      backgroundSpring.setTarget(backgroundTarget);
+      scaleSpring.setTarget(activeScale, { soft: 0.35 });
+      translateSpring.setTarget({ x: 0, y: activeTranslateY }, { soft: 0.35 });
+      rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: 0.4 });
+
       setIsActive(true);
+      setIsInteracting(true);
+    },
+    [
+      activeScale,
+      activeTranslateY,
+      backgroundSpring,
+      glareActiveOpacity,
+      glareSpring,
+      motionIntensity,
+      rotateDeltaSpring,
+      rotateSpring,
+      scaleSpring,
+      setPointerPosition,
+      translateSpring,
+    ]
+  );
+
+  const resetCard = useCallback(() => {
+    releaseToIdle(false);
+  }, [releaseToIdle]);
+
+  // Event handlers
+  const handlePointerEnter = useCallback(
+    (event: React.PointerEvent) => {
+      showcasingRef.current = false;
+      updateFromPointer(event.clientX, event.clientY);
+    },
+    [updateFromPointer]
+  );
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent) => {
+      if (controllerRef.current !== 'pointer') {
+        updateFromPointer(event.clientX, event.clientY);
+        return;
+      }
+      updateFromPointer(event.clientX, event.clientY);
+    },
+    [updateFromPointer]
+  );
+
+  const handlePointerUp = useCallback(() => {
+    releaseToIdle(true);
+  }, [releaseToIdle]);
+
+  const handlePointerLeave = useCallback(() => {
+    releaseToIdle(true);
+  }, [releaseToIdle]);
+
+  // Touch event handlers (unified with pointer events)
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
       updateFromPointer(e.touches[0].clientX, e.touches[0].clientY);
     }
   }, [updateFromPointer]);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    controllerRef.current = 'pointer';
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
     if (!isActive || e.touches.length !== 1) return;
     updateFromPointer(e.touches[0].clientX, e.touches[0].clientY);
   }, [isActive, updateFromPointer]);
 
   const handleTouchEnd = useCallback(() => {
-    controllerRef.current = 'idle';
-    orientationEngagedRef.current = false;
-    orientationReadyRef.current = false;
-    orientationIdleFramesRef.current = 0;
-    setIsActive(false);
-    resetCard();
-  }, [resetCard]);
+    releaseToIdle(true);
+  }, [releaseToIdle]);
 
   const handleClick = useCallback(() => {
     if (!pageURL) {
@@ -319,13 +391,29 @@ const Card: React.FC<CardProps> = ({
       y: adjust(beta, -limitY, limitY, 0, 100),
     };
 
-    rotateSpring.setTarget(rotateTarget);
-    glareSpring.setTarget(glareTarget);
-    backgroundSpring.setTarget(backgroundTarget);
-    scaleSpring.setTarget(activeScale);
-    translateSpring.setTarget({ x: 0, y: activeTranslateY });
+    rotateSpring.setTarget(rotateTarget, { soft: 0.2 });
+    glareSpring.setTarget({ ...glareTarget, o: glareActiveOpacity }, { soft: 0.2 });
+    backgroundSpring.setTarget(backgroundTarget, { soft: 0.2 });
+    scaleSpring.setTarget(activeScale, { soft: 0.2 });
+    translateSpring.setTarget({ x: 0, y: activeTranslateY }, { soft: 0.2 });
+    rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: 0.2 });
     setPointerPosition(glareTarget.x, glareTarget.y);
-  }, [rotateSpring, glareSpring, backgroundSpring, scaleSpring, translateSpring, setPointerPosition, prefersReducedMotion, motionIntensity, activeScale, activeTranslateY]);
+    setIsActive(true);
+    setIsInteracting(true);
+  }, [
+    activeScale,
+    activeTranslateY,
+    backgroundSpring,
+    glareActiveOpacity,
+    glareSpring,
+    motionIntensity,
+    prefersReducedMotion,
+    rotateDeltaSpring,
+    rotateSpring,
+    scaleSpring,
+    setPointerPosition,
+    translateSpring,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -370,9 +458,7 @@ const Card: React.FC<CardProps> = ({
         orientationEngagedRef.current = false;
         orientationReadyRef.current = false;
         orientationIdleFramesRef.current = 0;
-        controllerRef.current = 'idle';
-        setIsActive(false);
-        resetCard();
+        releaseToIdle(true);
         return;
       }
 
@@ -384,7 +470,7 @@ const Card: React.FC<CardProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [applyOrientation, resetCard]);
+  }, [applyOrientation, releaseToIdle]);
 
   // Initialize CSS variables on mount
   useEffect(() => {
@@ -396,8 +482,23 @@ const Card: React.FC<CardProps> = ({
     cardRef.current.style.setProperty('--pointer-from-center', '0');
     cardRef.current.style.setProperty('--pointer-from-top', '0.5');
     cardRef.current.style.setProperty('--pointer-from-left', '0.5');
-    cardRef.current.style.setProperty('--card-opacity', '1');
+    cardRef.current.style.setProperty('--card-opacity', '0');
   }, []);
+
+  useEffect(() => {
+    const element = cardRef.current;
+    if (!element) return;
+    const seed = randomSeedRef.current;
+    element.style.setProperty('--seedx', `${seed.x}`);
+    element.style.setProperty('--seedy', `${seed.y}`);
+    const cosmosX = Math.floor(seed.x * 734);
+    const cosmosY = Math.floor(seed.y * 1280);
+    element.style.setProperty('--cosmosbg', `${cosmosX}px ${cosmosY}px`);
+  }, []);
+
+  useEffect(() => () => {
+    clearReleaseTimeout();
+  }, [clearReleaseTimeout]);
 
   // Track document visibility changes
   useEffect(() => {
@@ -412,6 +513,7 @@ const Card: React.FC<CardProps> = ({
         if (showcaseAnimationRef.current) {
           cancelAnimationFrame(showcaseAnimationRef.current);
         }
+        releaseToIdle(false);
       }
     };
 
@@ -419,7 +521,7 @@ const Card: React.FC<CardProps> = ({
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [releaseToIdle]);
 
   // Showcase animation effect
   useEffect(() => {
@@ -471,6 +573,8 @@ const Card: React.FC<CardProps> = ({
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
       showcasingRef.current = true;
+      setIsActive(true);
+      setIsInteracting(true);
       const startTime = performance.now();
 
       const step = (timestamp: number) => {
@@ -502,26 +606,14 @@ const Card: React.FC<CardProps> = ({
         const bgAmplitude = prefersReducedMotion ? 8 : 12;
         const bgX = 50 - Math.sin(r) * bgAmplitude;
         const bgY = 50 - Math.cos(r) * bgAmplitude;
-
-        // Update springs
-        if (cardRef.current) {
-          cardRef.current.style.setProperty('--rotate-x', `${rotateX * motionIntensity}deg`);
-          cardRef.current.style.setProperty('--rotate-y', `${rotateY * motionIntensity}deg`);
-          cardRef.current.style.setProperty('--glare-x', `${glareX}%`);
-          cardRef.current.style.setProperty('--glare-y', `${glareY}%`);
-          cardRef.current.style.setProperty('--background-x', `${50 + (bgX - 50) * motionIntensity}%`);
-          cardRef.current.style.setProperty('--background-y', `${50 + (bgY - 50) * motionIntensity}%`);
-          cardRef.current.style.setProperty('--card-scale', `${prefersReducedMotion ? 1.005 : 1.02}`);
-          cardRef.current.style.setProperty('--translate-y', `${prefersReducedMotion ? -1.5 : -3}px`);
-        }
-
         rotateSpring.setTarget({ x: rotateX * motionIntensity, y: rotateY * motionIntensity });
-        glareSpring.setTarget({ x: glareX, y: glareY });
+        glareSpring.setTarget({ x: glareX, y: glareY, o: prefersReducedMotion ? 0.6 : 0.9 });
         const bgOffsetX = (bgX - 50) * motionIntensity;
         const bgOffsetY = (bgY - 50) * motionIntensity;
         backgroundSpring.setTarget({ x: 50 + bgOffsetX, y: 50 + bgOffsetY });
         scaleSpring.setTarget(prefersReducedMotion ? 1.005 : 1.02);
         translateSpring.setTarget({ x: 0, y: prefersReducedMotion ? -1.5 : -3 });
+        setPointerPosition(glareX, glareY);
 
         if (progress >= 1) {
           finalizeCycle(true);
@@ -559,8 +651,22 @@ const Card: React.FC<CardProps> = ({
       orientationReadyRef.current = false;
       orientationIdleFramesRef.current = 0;
       showcasingRef.current = false;
+      resetCard();
     };
-  }, [showcase, isDocumentVisible, isActive, rotateSpring, glareSpring, backgroundSpring, scaleSpring, resetCard, prefersReducedMotion, motionIntensity]);
+  }, [
+    showcase,
+    isDocumentVisible,
+    isActive,
+    rotateSpring,
+    glareSpring,
+    backgroundSpring,
+    scaleSpring,
+    resetCard,
+    prefersReducedMotion,
+    motionIntensity,
+    releaseToIdle,
+    setPointerPosition,
+  ]);
 
   // Build CSS classes
   const cardClasses = [
@@ -568,6 +674,7 @@ const Card: React.FC<CardProps> = ({
     types,
     'interactive',
     isActive && 'active',
+    isInteracting && 'interacting',
     showcase && 'showcase',
     subtypes,
     rarity
@@ -589,17 +696,20 @@ const Card: React.FC<CardProps> = ({
       data-has-mask={mask ? 'true' : undefined}
     >
       <div className="card__translater">
-        <button
+      <button
           type="button"
           className="card__rotator"
           aria-label={`${name} ${number} - ${rarity} ${subtypes}`}
           tabIndex={0}
           onPointerEnter={handlePointerEnter}
           onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
           onPointerLeave={handlePointerLeave}
+          onPointerCancel={handlePointerLeave}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchEnd}
           onClick={handleClick}
           onKeyDown={handleKeyDown}
         >

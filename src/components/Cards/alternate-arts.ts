@@ -143,4 +143,11 @@ const alternateArts = [
 
 export type AlternateArtId = (typeof alternateArts)[number];
 
+export const isAlternateArtId = (value: string | undefined): value is AlternateArtId => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  return (alternateArts as readonly string[]).includes(value);
+};
+
 export default alternateArts;

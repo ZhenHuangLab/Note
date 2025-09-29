@@ -38,6 +38,9 @@
   --sunpillar-clr-5: var(--sunpillar-5);
   --sunpillar-clr-6: var(--sunpillar-6);
 
+  --rotate-delta-x: 0deg;
+  --rotate-delta-y: 0deg;
+
 }
 
 .cards {
@@ -138,9 +141,9 @@
 }
 
 .card__rotator {
-  -webkit-transform: rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
+  -webkit-transform: rotateY(calc(var(--rotate-x) + var(--rotate-delta-x))) rotateX(calc(var(--rotate-y) + var(--rotate-delta-y)));
   -webkit-transform-style: preserve-3d;
-  transform: rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
+  transform: rotateY(calc(var(--rotate-x) + var(--rotate-delta-x))) rotateX(calc(var(--rotate-y) + var(--rotate-delta-y)));
   transform-style: preserve-3d;
   
   /* performance */
