@@ -1,0 +1,25 @@
+# Algolia-Crawler-Verif: 3324F2FE3C31B8A9
+
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Crawl-delay for politeness (optional, can be removed if not needed)
+# Crawl-delay: 1
+
+# Explicitly allow common search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+# Allow Algolia's crawler for search indexing
+User-agent: Algolia Crawler
+Allow: /
+
+# Sitemap location (update if you have a sitemap)
+Sitemap: https://note.zhenhuang.top/sitemap.xml
