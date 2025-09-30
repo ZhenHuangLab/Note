@@ -94,23 +94,6 @@ const config: Config = {
     ],
   ],
 
-  themes: [
-    [
-      require.resolve("@easyops-cn/docusaurus-search-local"),
-      {
-        hashed: true,
-        language: ["en", "zh"],
-        highlightSearchTermsOnTargetPage: true,
-        explicitSearchResultPath: true,
-        indexDocs: true,
-        indexBlog: true,
-        indexPages: false,
-        docsRouteBasePath: "docs",
-        blogRouteBasePath: "blog",
-      },
-    ],
-  ],
-
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
@@ -193,7 +176,37 @@ const config: Config = {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
     },
+
+    algolia: {
+      // The application ID provided by Algolia
+      appId: 'PS8L8YQZAP',
+      // Public API key: it is safe to commit it
+      apiKey: '23d5b8ea4f6ec77f39240b2100ede82b',
+      indexName: "Zhen Huang's Note",
+      // Optional: see doc section below
+      contextualSearch: true,
+      // Optional: Specify domains where the navigation should occur through window.location instead on history.push. Useful when our Algolia config crawls multiple documentation sites and we want to navigate with window.location.href to them.
+      // externalUrlRegex: 'external\\.com|domain\\.com',
+      // Optional: Replace parts of the item URLs from Algolia. Useful when using the same search index for multiple deployments using a different baseUrl. You can use regexp or string in the `from` param. For example: localhost:3000 vs myCompany.com/docs
+      // replaceSearchResultPathname: {
+      //   from: '/docs/', // or as RegExp: /\/docs\//
+      //   to: '/',
+      // },
+
+      // Optional: Algolia search parameters
+      // searchParameters: {},
+
+      // Optional: path for search page that enabled by default (`false` to disable it)
+      searchPagePath: 'search',
+
+      // Optional: whether the insights feature is enabled or not on Docsearch (`false` by default)
+      insights: true,
+
+      // Optional: whether you want to use the new Ask AI feature (undefined by default)
+      askAi: 'YsTj9S9tNpOa',
+
+    },
   } satisfies Preset.ThemeConfig,
-};;;
+};
 
 export default config;
