@@ -203,7 +203,7 @@ const config: Config = {
       insights: true,
 
       // Optional: whether you want to use the new Ask AI feature (undefined by default)
-      askAi: 'YsTj9S9tNpOa',
+      askAi: 'nA6R8k7Jx9I4',
 
     },
   } satisfies Preset.ThemeConfig,
