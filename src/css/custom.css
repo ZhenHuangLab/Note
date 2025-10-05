@@ -83,11 +83,12 @@ body {
                                Menlo, Consolas, "DejaVu Sans Mono", monospace;
 }
 
+
 .homepage-card__wrapper {
   display: flex;
   justify-content: center;
   width: 100%;
-  max-width: 720px;
+  max-width: min(clamp(18rem, 52vw, 34rem), calc(70vh * var(--card-aspect)));
   margin: 0 auto;
 }
 

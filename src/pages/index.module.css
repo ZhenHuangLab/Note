@@ -3,28 +3,9 @@
  * and scoped locally.
  */
 
-.heroBanner {
-  padding: 4rem 0;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-@media screen and (max-width: 996px) {
-  .heroBanner {
-    padding: 2rem;
-  }
-}
-
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
 .cardShowcase {
   position: relative;
-  padding: 4rem 0;
+  padding: clamp(3rem, 7vw, 5rem) 0 clamp(4rem, 9vw, 6rem);
   background: linear-gradient(135deg, rgba(13, 189, 233, 0.25) 0%, rgba(201, 41, 241, 0.18) 50%, rgba(33, 233, 133, 0.2) 100%);
   display: flex;
   align-items: center;
@@ -44,14 +25,19 @@
 
 .cardContainer {
   position: relative;
-  width: min(90vw, 720px);
+  width: min(clamp(18rem, 48vw, 34rem), calc(70vh * var(--card-aspect)));
+  max-width: 100%;
   margin: 0 auto;
   display: flex;
   justify-content: center;
 }
 
-@media screen and (max-width: 996px) {
+@media screen and (max-width: 768px) {
   .cardShowcase {
-    padding: 3rem 0;
+    padding: clamp(2rem, 10vw, 3rem) 0 clamp(2.5rem, 12vw, 3.5rem);
+  }
+
+  .cardContainer {
+    width: min(clamp(16rem, 84vw, 26rem), calc(62vh * var(--card-aspect)));
   }
 }
