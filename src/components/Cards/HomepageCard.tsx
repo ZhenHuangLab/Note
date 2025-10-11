@@ -4,13 +4,13 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import CardProxy from './CardProxy';
 
-type CardEntry = {
+export type CardEntry = {
   pageURL: string;
   image: string;
   imageLight?: string;
 };
 
-const CARD_ENTRIES: readonly CardEntry[] = [
+export const CARD_ENTRIES: readonly CardEntry[] = [
   { pageURL: '#', image: '/assets/cards/back.png', imageLight: '/assets/cards/back.light.png' },
   { pageURL: '/cs/pl/riscv/', image: '/assets/cards/riscv.png', imageLight: '/assets/cards/riscv.light.png' },
   { pageURL: '/cs/pl/rust/basic/', image: '/assets/cards/rust.png', imageLight: '/assets/cards/rust.light.png' },

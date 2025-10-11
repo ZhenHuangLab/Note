@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useColorMode } from '@docusaurus/theme-common';
 import { useSpringRaf } from './useSpringRaf';
 import CardHud from './CardHud';
+import CardBack from './CardBack';
 import { adjust, clamp, round } from './math';
 import { orientation, resetBaseOrientation, OrientationState } from './orientation';
 import { useScrollProgress } from '../../hooks/useScrollProgress';
+import { CARD_ENTRIES } from './HomepageCard';
 
 const usePrefersReducedMotion = (): boolean => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(() => {
@@ -87,6 +90,7 @@ const Card: React.FC<CardProps> = ({
     typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
   );
   const prefersReducedMotion = usePrefersReducedMotion();
+  const { colorMode } = useColorMode();
   const showcaseTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const showcaseAnimationRef = useRef<number | undefined>(undefined);
 
@@ -799,12 +803,9 @@ const Card: React.FC<CardProps> = ({
           onClick={handleClick}
           onKeyDown={handleKeyDown}
         >
-          <img
-            className="card__back"
-            src={back}
-            alt="Card back"
-            loading="lazy"
-          />
+          <div className="card__back">
+            <CardBack colorMode={colorMode} entries={CARD_ENTRIES} />
+          </div>
           <div className="card__front">
             <img
               src={imgLarge || img}

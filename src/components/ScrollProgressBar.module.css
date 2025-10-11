@@ -1,0 +1,76 @@
+/**
+ * Scroll Progress Bar Component Styles
+ *
+ * Design: Fixed-position glassmorphism progress indicator on right edge.
+ * Appears during scroll, auto-hides after 1s of inactivity.
+ */
+
+.progressBar {
+  /* Positioning */
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 100;
+
+  /* Sizing - height driven by CSS custom property */
+  width: 4px;
+  height: calc(var(--scroll-progress) * 1%);
+
+  /* Glassmorphism effect */
+  background: linear-gradient(
+    to bottom,
+    rgba(99, 102, 241, 0.8),
+    rgba(139, 92, 246, 0.6)
+  );
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+
+  /* Smooth transitions */
+  transition: opacity 300ms ease-in-out,
+              height 100ms ease-out;
+}
+
+/* Dark mode adjustments */
+[data-theme='dark'] .progressBar {
+  background: linear-gradient(
+    to bottom,
+    rgba(139, 92, 246, 0.9),
+    rgba(167, 139, 250, 0.7)
+  );
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.6);
+}
+
+/* Light mode adjustments */
+[data-theme='light'] .progressBar {
+  background: linear-gradient(
+    to bottom,
+    rgba(79, 70, 229, 0.7),
+    rgba(109, 40, 217, 0.5)
+  );
+  box-shadow: 0 0 8px rgba(79, 70, 229, 0.4);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .progressBar {
+    width: 3px;
+  }
+}
+
+/* High contrast mode accessibility */
+@media (prefers-contrast: high) {
+  .progressBar {
+    background: linear-gradient(
+      to bottom,
+      rgba(99, 102, 241, 1),
+      rgba(139, 92, 246, 0.9)
+    );
+  }
+}
+
+/* Reduced motion accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .progressBar {
+    transition: opacity 150ms ease-in-out;
+  }
+}
