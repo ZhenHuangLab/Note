@@ -3,6 +3,7 @@ import { useSpringRaf } from './useSpringRaf';
 import CardHud from './CardHud';
 import { adjust, clamp, round } from './math';
 import { orientation, resetBaseOrientation, OrientationState } from './orientation';
+import { useScrollProgress } from '../../hooks/useScrollProgress';
 
 const usePrefersReducedMotion = (): boolean => {
   const [prefersReducedMotion, setPrefersReducedMotion] = useState<boolean>(() => {
@@ -88,7 +89,16 @@ const Card: React.FC<CardProps> = ({
   const prefersReducedMotion = usePrefersReducedMotion();
   const showcaseTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const showcaseAnimationRef = useRef<number | undefined>(undefined);
-  const controllerRef = useRef<'idle' | 'pointer' | 'orientation' | 'showcase'>('idle');
+
+  // Controller State Machine
+  // Priority: pointer > showcase > scroll > orientation > idle
+  // Transitions:
+  //   - pointer: Always wins, immediately takes control when user hovers/touches
+  //   - showcase: Waits for idle state, defers to pointer
+  //   - scroll: Defers to pointer/showcase, takes priority over orientation
+  //   - orientation: Lowest priority, defers to all others
+  //   - idle: Default state, no active controller
+  const controllerRef = useRef<'idle' | 'pointer' | 'scroll' | 'orientation' | 'showcase'>('idle');
   const orientationEngagedRef = useRef(false);
   const orientationReadyRef = useRef(false);
   const orientationIdleFramesRef = useRef(0);
@@ -96,6 +106,11 @@ const Card: React.FC<CardProps> = ({
   const showcaseHasRunRef = useRef(false);
   const releaseTimeoutRef = useRef<number | undefined>(undefined);
   const pointerPositionRef = useRef({ x: 50, y: 50 });
+  const scrollRotationRef = useRef(0); // Track current scroll rotation for blend factor
+  const scrollReleaseTimeoutRef = useRef<number | undefined>(undefined);
+
+  // Get scroll progress for card flip animation
+  const { scrollRotation } = useScrollProgress();
 
   const springInteractiveConfig = useMemo(
     () => ({ stiffness: 0.066, damping: 0.25, precision: 0.001 }),
@@ -259,9 +274,16 @@ const Card: React.FC<CardProps> = ({
       const centerX = px - 50;
       const centerY = py - 50;
 
+      // Reason: Blend factor prevents coordinate space issues when card is rotated by scroll.
+      // At 90° scroll (card edge-on), hover left/right would incorrectly become front/back rotation.
+      // Math.max(0, cos()) fades hover influence: 100% at 0°, 0% at 90°, stays 0% at 90-180°.
+      // Clamping to [0, 1] prevents negative blend at 135-180° which would invert hover direction.
+      // Design: Back face (90-180°) has no hover since CardBack displays static content.
+      const hoverBlend = Math.max(0, Math.cos((scrollRotationRef.current * Math.PI) / 180));
+
       const rotateTarget = {
-        x: round(-(centerX / 3.5) * motionIntensity),
-        y: round((centerY / 2) * motionIntensity),
+        x: round(-(centerX / 3.5) * motionIntensity * hoverBlend),
+        y: round((centerY / 2) * motionIntensity * hoverBlend),
       };
 
       const glareTarget = {
@@ -480,6 +502,47 @@ const Card: React.FC<CardProps> = ({
       unsubscribe();
     };
   }, [applyOrientation, releaseToIdle]);
+
+  // Scroll-driven card flip integration
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Clear any pending scroll release timeout
+    if (scrollReleaseTimeoutRef.current) {
+      clearTimeout(scrollReleaseTimeoutRef.current);
+    }
+
+    // Reason: CHECK CONTROLLER RIGHT BEFORE SPRING UPDATE (not at effect start) to prevent race condition.
+    // If pointer or showcase is active, defer to higher priority controllers.
+    if (controllerRef.current !== 'pointer' && controllerRef.current !== 'showcase') {
+      controllerRef.current = 'scroll';
+
+      // Reason: Use rotateDeltaSpring.x for scroll to compose with rotateSpring (hover).
+      // CRITICAL: .x property maps to --rotate-delta-x → rotateY() → Y-axis rotation (horizontal flip).
+      // Using .y would map to rotateX() → X-axis tilt (WRONG for card flip).
+      // This prevents transform layer conflicts and coordinate space issues.
+      rotateDeltaSpring.setTarget({ x: scrollRotation, y: 0 }, { soft: 0.25 });
+
+      // Update ref for blend factor usage in updateFromPointer
+      scrollRotationRef.current = scrollRotation;
+
+      // Debounced release back to idle after scroll stops (200ms)
+      scrollReleaseTimeoutRef.current = window.setTimeout(() => {
+        if (controllerRef.current === 'scroll') {
+          controllerRef.current = 'idle';
+        }
+      }, 200);
+    } else {
+      // Update ref even if not taking control, so blend factor stays current
+      scrollRotationRef.current = scrollRotation;
+    }
+
+    return () => {
+      if (scrollReleaseTimeoutRef.current) {
+        clearTimeout(scrollReleaseTimeoutRef.current);
+      }
+    };
+  }, [scrollRotation, rotateDeltaSpring]);
 
   // Initialize CSS variables on mount
   useEffect(() => {
