@@ -1,4 +1,5 @@
 import type {ReactNode} from 'react';
+import { useEffect } from 'react';
 import Head from '@docusaurus/Head';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
@@ -16,6 +17,19 @@ export default function Home(): ReactNode {
 
   // Get scroll progress for animated progress indicator
   const { scrollProgress } = useScrollProgress();
+
+  // Hide scrollbar on homepage only (virtual scroll via wheel events)
+  useEffect(() => {
+    // Add overflow: hidden to prevent scrollbar and actual scrolling
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+
+    // Cleanup: restore scrollbar when leaving homepage
+    return () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   return (
     <Layout
