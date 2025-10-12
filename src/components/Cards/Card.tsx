@@ -126,8 +126,10 @@ const Card: React.FC<CardProps> = ({
   );
 
   const motionIntensity = prefersReducedMotion ? 0.6 : 1;
-  const activeScale = prefersReducedMotion ? 1.015 : 1.06;
-  const activeTranslateY = prefersReducedMotion ? -2 : -6;
+  // Reason: Reduce scale on narrow viewports to prevent overflow and maintain smooth UX
+  const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 600;
+  const activeScale = prefersReducedMotion ? 1.015 : (isMobileViewport ? 1.04 : 1.06);
+  const activeTranslateY = prefersReducedMotion ? -2 : (isMobileViewport ? -4 : -6);
   const glareActiveOpacity = prefersReducedMotion ? 0.65 : 1;
   const snapSoftFactor = prefersReducedMotion ? 0.28 : 0.16;
 
@@ -171,6 +173,13 @@ const Card: React.FC<CardProps> = ({
     springPopoverConfig,
     cardRef,
     ['--translate-x', '--translate-y']
+  );
+
+  const scrollFlipSpring = useSpringRaf(
+    0,
+    springPopoverConfig,
+    cardRef,
+    '--scroll-rotate-y'
   );
 
   const randomSeedRef = useRef({ x: Math.random(), y: Math.random() });
@@ -231,6 +240,8 @@ const Card: React.FC<CardProps> = ({
 
       releaseTimeoutRef.current = window.setTimeout(() => {
         rotateSpring.setTarget({ x: 0, y: 0 }, { soft: snapSoftFactor });
+        // Reason: Do NOT reset rotateDeltaSpring here - it may be used by showcase
+        // and more importantly, we must never reset scrollFlipSpring (scroll state is persistent)
         rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: snapSoftFactor });
         glareSpring.setTarget({ x: 50, y: 50, o: 0 }, { soft: snapSoftFactor });
         backgroundSpring.setTarget({ x: 50, y: 50 }, { soft: snapSoftFactor });
@@ -278,16 +289,12 @@ const Card: React.FC<CardProps> = ({
       const centerX = px - 50;
       const centerY = py - 50;
 
-      // Reason: Blend factor prevents coordinate space issues when card is rotated by scroll.
-      // At 90° scroll (card edge-on), hover left/right would incorrectly become front/back rotation.
-      // Math.max(0, cos()) fades hover influence: 100% at 0°, 0% at 90°, stays 0% at 90-180°.
-      // Clamping to [0, 1] prevents negative blend at 135-180° which would invert hover direction.
-      // Design: Back face (90-180°) has no hover since CardBack displays static content.
-      const hoverBlend = Math.max(0, Math.cos((scrollRotationRef.current * Math.PI) / 180));
-
+      // Reason: Removed hoverBlend to enable hover tilt on both front and back faces.
+      // With independent scrollFlipSpring, hover tilt and scroll flip no longer interfere.
+      // Back face now responds to mouse movement just like the front face.
       const rotateTarget = {
-        x: round(-(centerX / 3.5) * motionIntensity * hoverBlend),
-        y: round((centerY / 2) * motionIntensity * hoverBlend),
+        x: round(-(centerX / 3.5) * motionIntensity),
+        y: round((centerY / 2) * motionIntensity),
       };
 
       const glareTarget = {
@@ -306,7 +313,8 @@ const Card: React.FC<CardProps> = ({
       backgroundSpring.setTarget(backgroundTarget);
       scaleSpring.setTarget(activeScale, { soft: 0.35 });
       translateSpring.setTarget({ x: 0, y: activeTranslateY }, { soft: 0.35 });
-      rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: 0.4 });
+      // Reason: Removed rotateDeltaSpring reset to prevent interference with scroll flip state
+      // rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: 0.4 });
 
       setIsActive(true);
       setIsInteracting(true);
@@ -431,7 +439,8 @@ const Card: React.FC<CardProps> = ({
     backgroundSpring.setTarget(backgroundTarget, { soft: 0.2 });
     scaleSpring.setTarget(activeScale, { soft: 0.2 });
     translateSpring.setTarget({ x: 0, y: activeTranslateY }, { soft: 0.2 });
-    rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: 0.2 });
+    // Reason: Removed rotateDeltaSpring reset to prevent interference with scroll flip state
+    // rotateDeltaSpring.setTarget({ x: 0, y: 0 }, { soft: 0.2 });
     setPointerPosition(glareTarget.x, glareTarget.y);
     setIsActive(true);
     setIsInteracting(true);
@@ -521,11 +530,10 @@ const Card: React.FC<CardProps> = ({
     if (controllerRef.current !== 'pointer' && controllerRef.current !== 'showcase') {
       controllerRef.current = 'scroll';
 
-      // Reason: Use rotateDeltaSpring.x for scroll to compose with rotateSpring (hover).
-      // CRITICAL: .x property maps to --rotate-delta-x → rotateY() → Y-axis rotation (horizontal flip).
-      // Using .y would map to rotateX() → X-axis tilt (WRONG for card flip).
-      // This prevents transform layer conflicts and coordinate space issues.
-      rotateDeltaSpring.setTarget({ x: scrollRotation, y: 0 }, { soft: 0.25 });
+      // Reason: Use dedicated scrollFlipSpring for Y-axis flip, independent from pointer control.
+      // This prevents pointer hover/leave from resetting the flip state.
+      // The spring maps to --scroll-flip-rotation CSS variable.
+      scrollFlipSpring.setTarget(scrollRotation, { soft: 0.25 });
 
       // Update ref for blend factor usage in updateFromPointer
       scrollRotationRef.current = scrollRotation;
@@ -546,7 +554,7 @@ const Card: React.FC<CardProps> = ({
         clearTimeout(scrollReleaseTimeoutRef.current);
       }
     };
-  }, [scrollRotation, rotateDeltaSpring]);
+  }, [scrollRotation, scrollFlipSpring]);
 
   // Initialize CSS variables on mount
   useEffect(() => {
@@ -559,6 +567,7 @@ const Card: React.FC<CardProps> = ({
     cardRef.current.style.setProperty('--pointer-from-top', '0.5');
     cardRef.current.style.setProperty('--pointer-from-left', '0.5');
     cardRef.current.style.setProperty('--card-opacity', '0');
+    cardRef.current.style.setProperty('--scroll-rotate-y', '0deg');
   }, []);
 
   useEffect(() => {

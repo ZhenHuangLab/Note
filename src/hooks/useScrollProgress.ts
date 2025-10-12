@@ -42,15 +42,17 @@ export const useScrollProgress = (): ScrollProgressResult => {
     let rafId: number | null = null;
     let lastRotation = 0;
     let flipTimeoutId: number | null = null;
+    
+    // Touch/pointer tracking
+    let pointerStartY: number | null = null;
+    let isPointerActive = false;
 
-    const handleWheel = (e: WheelEvent) => {
-      // Prevent default scroll behavior (keeps page static)
-      e.preventDefault();
+    // Reason: Unified update function for both wheel and touch inputs
+    const updateVirtualScroll = (delta: number) => {
+      // Bail out if document is hidden (performance optimization)
+      if (document.visibilityState !== 'visible') return;
 
-      // Accumulate deltaY into virtual scroll with sensitivity multiplier
-      virtualScroll += e.deltaY * WHEEL_SENSITIVITY;
-
-      // Clamp to valid range
+      virtualScroll += delta;
       virtualScroll = Math.max(0, Math.min(VIRTUAL_SCROLL_MAX, virtualScroll));
 
       // RAF throttling: skip if already pending
@@ -94,11 +96,60 @@ export const useScrollProgress = (): ScrollProgressResult => {
       });
     };
 
+    const handleWheel = (e: WheelEvent) => {
+      // Prevent default scroll behavior (keeps page static)
+      e.preventDefault();
+
+      // Accumulate deltaY into virtual scroll with sensitivity multiplier
+      updateVirtualScroll(e.deltaY * WHEEL_SENSITIVITY);
+    };
+
+    // Reason: Touch support for mobile devices - track vertical drag to drive flip
+    const handlePointerDown = (e: PointerEvent) => {
+      // Only handle touch input (mouse is handled by wheel)
+      if (e.pointerType !== 'touch') return;
+
+      pointerStartY = e.clientY;
+      isPointerActive = true;
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      // Only process if touch is active and started
+      if (!isPointerActive || pointerStartY === null || e.pointerType !== 'touch') return;
+
+      // Prevent default to avoid page scroll during card flip
+      e.preventDefault();
+
+      // Calculate vertical delta (negative = swipe up = increase rotation)
+      const deltaY = pointerStartY - e.clientY;
+      
+      // Update pointer position for next delta calculation
+      pointerStartY = e.clientY;
+
+      // Apply to virtual scroll (sensitivity tuned for touch)
+      updateVirtualScroll(deltaY * 1.5);
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') return;
+
+      isPointerActive = false;
+      pointerStartY = null;
+    };
+
     // Must use passive: false to allow preventDefault()
     window.addEventListener('wheel', handleWheel, { passive: false });
+    window.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp, { passive: true });
+    window.addEventListener('pointercancel', handlePointerUp, { passive: true });
 
     return () => {
       window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }

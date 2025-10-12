@@ -40,6 +40,7 @@
 
   --rotate-delta-x: 0deg;
   --rotate-delta-y: 0deg;
+  --scroll-rotate-y: 0deg;
 
 }
 
@@ -125,7 +126,7 @@
 .card__translater,
 .card__rotator {
   display: grid;
-  perspective: 600px;
+  perspective: clamp(320px, 45vw, 900px);
   will-change: transform, box-shadow;
 
   transform-origin: center;
@@ -141,9 +142,9 @@
 }
 
 .card__rotator {
-  -webkit-transform: rotateY(calc(var(--rotate-x) + var(--rotate-delta-x))) rotateX(calc(var(--rotate-y) + var(--rotate-delta-y)));
+  -webkit-transform: rotateY(var(--scroll-rotate-y)) rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
   -webkit-transform-style: preserve-3d;
-  transform: rotateY(calc(var(--rotate-x) + var(--rotate-delta-x))) rotateX(calc(var(--rotate-y) + var(--rotate-delta-y)));
+  transform: rotateY(var(--scroll-rotate-y)) rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
   transform-style: preserve-3d;
   
   /* performance */
@@ -208,11 +209,13 @@ button.card__rotator {
   background-color: var(--card-back);
   -webkit-transform: rotateY(180deg) translateZ(1px);
   transform: rotateY(180deg) translateZ(1px);
+  -webkit-backface-visibility: visible;
   backface-visibility: visible;
 }
 
 .card__front,
 .card__front * {
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
 }
 
@@ -359,4 +362,21 @@ Shine & Glare Effects
 .cards[data-rarity="rare holo cosmos"][data-supertype="trainer"] .card__glare:after,
 .cards[data-rarity$="reverse holo"][data-supertype="trainer"] .card__glare:after {
   clip-path: var(--clip-trainer);
+}
+
+/**
+  Mobile Optimizations
+**/
+
+@media (max-width: 600px) {
+  .card__translater,
+  .card__rotator {
+    /* Tighter perspective on small screens to reduce warping */
+    perspective: clamp(280px, 40vw, 600px);
+  }
+  
+  .cards {
+    /* Prevent horizontal overflow from scaled cards */
+    max-width: 100%;
+  }
 }
