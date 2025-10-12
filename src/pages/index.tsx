@@ -15,8 +15,8 @@ export default function Home(): ReactNode {
   const cardsBaseCss = useBaseUrl('/css/cards/base.css');
   const cardsCss = useBaseUrl('/css/cards/cards.css');
 
-  // Get scroll progress for animated progress indicator
-  const { scrollProgress } = useScrollProgress();
+  // Get flip state, velocity, and progress for dynamic progress indicator
+  const { scrollProgress, isFlipping, flipVelocity } = useScrollProgress();
 
   // Hide scrollbar on homepage only (virtual scroll via wheel events)
   useEffect(() => {
@@ -40,7 +40,7 @@ export default function Home(): ReactNode {
         <link rel="stylesheet" href={cardsBaseCss} />
         <link rel="stylesheet" href={cardsCss} />
       </Head>
-      <ScrollProgressBar scrollProgress={scrollProgress} />
+      <ScrollProgressBar scrollProgress={scrollProgress} isFlipping={isFlipping} flipVelocity={flipVelocity} />
       <main>
         <section className={styles.cardShowcase}>
           <div className={styles.cardContainer}>

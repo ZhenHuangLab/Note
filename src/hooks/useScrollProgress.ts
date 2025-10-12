@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 export interface ScrollProgressResult {
   scrollProgress: number;  // 0-100
   scrollRotation: number;  // 0-180 (for Y-axis rotation via rotateDeltaSpring.x)
+  isFlipping: boolean;     // True when rotation is actively changing
+  flipVelocity: number;    // Absolute rotation velocity (deg/frame) for elastic effect
 }
 
 // Virtual scroll configuration
@@ -29,6 +31,8 @@ const WHEEL_SENSITIVITY = 0.5;    // Multiplier for wheel deltaY (lower = slower
 export const useScrollProgress = (): ScrollProgressResult => {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [scrollRotation, setScrollRotation] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [flipVelocity, setFlipVelocity] = useState(0);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -36,6 +40,8 @@ export const useScrollProgress = (): ScrollProgressResult => {
     // Virtual scroll accumulator (0 to VIRTUAL_SCROLL_MAX)
     let virtualScroll = 0;
     let rafId: number | null = null;
+    let lastRotation = 0;
+    let flipTimeoutId: number | null = null;
 
     const handleWheel = (e: WheelEvent) => {
       // Prevent default scroll behavior (keeps page static)
@@ -59,8 +65,32 @@ export const useScrollProgress = (): ScrollProgressResult => {
         // Map to 0-180° rotation (full flip)
         const rotation = Math.min(progress * 1.8, 180);
 
+        // Reason: Calculate rotation delta to detect active flipping state
+        const rotationDelta = Math.abs(rotation - lastRotation);
+        lastRotation = rotation;
+
+        // Reason: Velocity drives elastic effect - clamp to [0, 10] for smooth animation
+        const velocity = Math.min(rotationDelta, 10);
+
         setScrollProgress(progress);
         setScrollRotation(rotation);
+        setFlipVelocity(velocity);
+
+        // Reason: Show indicator instantly when rotation changes (threshold 0.1° filters noise)
+        if (rotationDelta > 0.1) {
+          setIsFlipping(true);
+
+          // Reason: Clear previous timeout to reset hide delay
+          if (flipTimeoutId !== null) {
+            clearTimeout(flipTimeoutId);
+          }
+
+          // Reason: Hide indicator 150ms after flip stops (instant feedback, no lag)
+          flipTimeoutId = window.setTimeout(() => {
+            setIsFlipping(false);
+            setFlipVelocity(0);
+          }, 150);
+        }
       });
     };
 
@@ -72,8 +102,11 @@ export const useScrollProgress = (): ScrollProgressResult => {
       if (rafId !== null) {
         cancelAnimationFrame(rafId);
       }
+      if (flipTimeoutId !== null) {
+        clearTimeout(flipTimeoutId);
+      }
     };
   }, []);
 
-  return { scrollProgress, scrollRotation };
+  return { scrollProgress, scrollRotation, isFlipping, flipVelocity };
 };
